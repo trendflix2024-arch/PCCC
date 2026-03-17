@@ -299,15 +299,15 @@ export default function CustomsForm() {
                   <div className="px-4 py-3 space-y-2" style={{ wordBreak: 'keep-all' }}>
                     <p className="text-sm text-gray-700 flex gap-2">
                       <span className="shrink-0 font-bold" style={{ color: brand.primary }}>①</span>
-                      관세청 기준 변경으로 <strong>배송지 우편번호</strong>가 개인통관고유부호에 등록된 정보와 일치해야 통관이 진행됩니다.
+                      <span>관세청 기준 변경으로 <strong>배송지 우편번호</strong>가 개인통관고유부호에 등록된 정보와 일치해야 통관이 진행됩니다.</span>
                     </p>
                     <p className="text-sm text-gray-700 flex gap-2">
                       <span className="shrink-0 font-bold" style={{ color: brand.primary }}>②</span>
-                      정보가 일치하지 않으면 상품 통관이 지연되거나 반송될 수 있어 고객님께 안내드립니다.
+                      <span>정보가 일치하지 않으면 상품 통관이 지연되거나 반송될 수 있어 고객님께 안내드립니다.</span>
                     </p>
                     <p className="text-sm text-gray-700 flex gap-2">
                       <span className="shrink-0 font-bold" style={{ color: brand.primary }}>③</span>
-                      입력하신 정보는 관세청 전자통관시스템(UNI-PASS) 검증 목적으로만 안전하게 사용됩니다.
+                      <span>입력하신 정보는 관세청 전자통관시스템(UNI-PASS) 검증 목적으로만 안전하게 사용됩니다.</span>
                     </p>
                   </div>
                 </div>
@@ -514,17 +514,6 @@ export default function CustomsForm() {
             {/* ── 푸터 ── */}
             <div className="mt-5 pb-8">
               <div className="border-t border-gray-200 pt-4 space-y-3">
-                {/* CS 연락처 */}
-                <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-400">고객센터</p>
-                    <p className="text-base font-bold text-gray-800 mt-0.5">☎ {brand.cs}</p>
-                  </div>
-                  <p className="text-xs text-gray-400 text-right leading-snug">
-                    평일 09:00 ~ 18:00<br/>
-                    <span className="text-gray-300">(주말·공휴일 휴무)</span>
-                  </p>
-                </div>
                 {/* 보안 배지 */}
                 <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-gray-400">
                   <span className="flex items-center gap-1">
