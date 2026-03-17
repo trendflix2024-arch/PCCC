@@ -23,7 +23,8 @@ export default async function handler(req, res) {
     `▶ ${link}`,
   ].join('\n')
 
-  console.log(`[sms] uid=${process.env.ALIGO_USERID} keylen=${process.env.ALIGO_APIKEY?.length ?? 'MISSING'} sender=${process.env.ALIGO_SENDER}`)
+  const myIp = await fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>d.ip).catch(()=>'unknown')
+  console.log(`[sms] uid=${process.env.ALIGO_USERID} keylen=${process.env.ALIGO_APIKEY?.length ?? 'MISSING'} sender=${process.env.ALIGO_SENDER} outbound_ip=${myIp}`)
 
   const params = new URLSearchParams({
     user_id:   process.env.ALIGO_USERID,
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
     if (String(data.result_code) === '1') {
       return res.status(200).json({ ok: true, msgid: data.msg_id })
     } else {
-      return res.status(200).json({ ok: false, message: data.message })
+      return res.status(200).json({ ok: false, message: data.message, _ip: myIp })
     }
   } catch (err) {
     console.error('Aligo SMS error:', err)
