@@ -68,6 +68,7 @@ export default function CustomsForm() {
   const [urlError, setUrlError]         = useState(null)
   const [orderId, setOrderId]           = useState('')
   const [brand, setBrand]               = useState(DEFAULT_BRAND)
+  const [seller, setSeller]             = useState('')
   const [name, setName]                 = useState('')
   const [phone, setPhone]               = useState('')
   const [pccc, setPccc]                 = useState('')
@@ -83,7 +84,9 @@ export default function CustomsForm() {
     const oid   = params.get('orderId')
     const token = params.get('token')
     const b     = params.get('brand')
+    const s     = params.get('seller')
     if (b && BRANDS[b]) setBrand(BRANDS[b])
+    if (s) setSeller(decodeURIComponent(s))
     if (!oid || !token) {
       setUrlError('유효하지 않은 접근입니다. 발송된 알림톡 링크를 통해 다시 접속해 주세요.')
       return
@@ -211,13 +214,26 @@ export default function CustomsForm() {
           </div>
         ) : (
           <>
-            {/* ── 접수번호 + 단계 표시 ── */}
-            <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-3 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-400">접수번호</p>
-                <p className="text-sm font-mono font-bold text-gray-800 mt-0.5">{orderId || '확인 중...'}</p>
+            {/* ── 접수 정보 카드 ── */}
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-3">
+              {/* 업체명·판매처·접수번호 */}
+              <div className="grid grid-cols-3 divide-x divide-gray-100">
+                <div className="px-3 py-3">
+                  <p className="text-xs text-gray-400 mb-0.5">업체명</p>
+                  <p className="text-sm font-bold text-gray-900 leading-tight">{brand.name}</p>
+                </div>
+                <div className="px-3 py-3">
+                  <p className="text-xs text-gray-400 mb-0.5">판매처</p>
+                  <p className="text-sm font-bold text-gray-900 leading-tight">{seller || '-'}</p>
+                </div>
+                <div className="px-3 py-3">
+                  <p className="text-xs text-gray-400 mb-0.5">접수번호</p>
+                  <p className="text-xs font-mono font-bold text-gray-900 leading-tight break-all">{orderId || '확인 중'}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-1 text-xs">
+              {/* 단계 표시 */}
+              <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-center gap-1"
+                   style={{ background: '#fafafa' }}>
                 {[
                   { n: 1, label: '정보확인' },
                   { n: 2, label: '검증' },
