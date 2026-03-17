@@ -29,6 +29,8 @@ export default function AdminDashboard() {
   const [addError, setAddError]   = useState('')
   const [smsResult, setSmsResult] = useState(null)   // null | { ok, message }
   const [saving, setSaving]       = useState(false)
+  const [deletingId, setDeletingId] = useState(null)  // 삭제 확인 중인 행 ID
+  const [copiedId, setCopiedId]   = useState(null)    // 복사 완료 표시용
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -110,6 +112,20 @@ export default function AdminDashboard() {
 
     setSaving(false)
     await fetchOrders()
+  }
+
+  // 대기중 행 삭제
+  const handleDelete = async (id) => {
+    const { error } = await supabase.from('orders').delete().eq('id', id)
+    if (!error) { await fetchOrders(); setDeletingId(null) }
+  }
+
+  // 고객 링크 복사
+  const copyLink = (order) => {
+    const url = `https://pccc-six.vercel.app/?orderId=${encodeURIComponent(order.id)}&token=ok`
+    navigator.clipboard.writeText(url)
+    setCopiedId(order.id)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   // 접수완료 → 처리완료
@@ -254,6 +270,9 @@ export default function AdminDashboard() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     {activeTab === 'waiting' ? '등록일시' : activeTab === 'pending_resubmit' ? '수정일시' : '처리일시'}
                   </th>
+                  {activeTab === 'waiting' && (
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">액션</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -284,6 +303,35 @@ export default function AdminDashboard() {
                       <td className="px-4 py-3 text-gray-500">
                         {order.registered_at ?? order.updated_at ?? '-'}
                       </td>
+                      {activeTab === 'waiting' && (
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          {deletingId === order.id ? (
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <span className="text-gray-500">삭제?</span>
+                              <button onClick={() => handleDelete(order.id)}
+                                className="text-red-600 font-medium hover:underline">확인</button>
+                              <button onClick={() => setDeletingId(null)}
+                                className="text-gray-400 hover:underline">취소</button>
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-2">
+                              <button
+                                onClick={() => copyLink(order)}
+                                className="text-xs text-indigo-500 hover:text-indigo-700"
+                                title="고객 링크 복사"
+                              >
+                                {copiedId === order.id ? '복사됨 ✓' : '링크복사'}
+                              </button>
+                              <button
+                                onClick={() => setDeletingId(order.id)}
+                                className="text-xs text-red-400 hover:text-red-600"
+                              >
+                                삭제
+                              </button>
+                            </span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
