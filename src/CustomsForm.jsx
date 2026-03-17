@@ -287,7 +287,7 @@ export default function CustomsForm() {
                   <div className="px-4 py-2.5 border-b" style={{ background: brand.light, borderColor: '#d0ddef' }}>
                     <p className="text-sm font-bold" style={{ color: brand.primary }}>【필독】 개인통관고유부호 정정 안내</p>
                   </div>
-                  <div className="px-4 py-3 space-y-2">
+                  <div className="px-4 py-3 space-y-2" style={{ wordBreak: 'keep-all' }}>
                     <p className="text-sm text-gray-700 flex gap-2">
                       <span className="shrink-0 font-bold" style={{ color: brand.primary }}>①</span>
                       관세청 정책 변경으로 <strong>배송지 우편번호</strong>가 개인통관고유부호 등록 정보와 정확히 일치해야 통관이 가능합니다.
