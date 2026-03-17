@@ -479,6 +479,9 @@ export default function CustomsForm() {
                           <p className="text-sm mt-0.5 text-gray-600">
                             잠시 후 다시 시도해 주세요. 계속 문제가 발생하면 고객센터(☎ {brand.cs})로 문의해 주세요.
                           </p>
+                          {verifyErrors.length > 0 && (
+                            <p className="text-xs mt-1 font-mono text-gray-500">{verifyErrors.join(' / ')}</p>
+                          )}
                         </div>
                       </div>
                     )}
