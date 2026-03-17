@@ -7,6 +7,12 @@ const TABS = [
   { key: 'done',             label: '처리완료', desc: '배대지 재접수 처리 완료' },
 ]
 
+const BRAND_OPTIONS = [
+  { key: 'pyunhan', name: '편한인생연구소' },
+  { key: 'cool',    name: '쿨한인생연구소' },
+  { key: 'bbunhan', name: '뻔한인생연구소' },
+]
+
 function nowStr() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
@@ -19,8 +25,9 @@ export default function AdminDashboard() {
   const [selected, setSelected]   = useState([])
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [addOpen, setAddOpen]     = useState(false)
-  const [addForm, setAddForm]     = useState({ id: '', name: '', phone: '' })
+  const [addForm, setAddForm]     = useState({ id: '', name: '', phone: '', brand: 'pyunhan', seller: '' })
   const [addError, setAddError]   = useState('')
+  const [smsResult, setSmsResult] = useState(null)   // null | { ok, message }
   const [saving, setSaving]       = useState(false)
 
   const fetchOrders = async () => {
@@ -58,29 +65,51 @@ export default function AdminDashboard() {
 
   const selectedInTab = selected.filter(id => currentList.find(o => o.id === id))
 
-  // 고객 추가 (대기중)
+  // 고객 추가 (대기중) + 알리고 SMS 발송
   const handleAddSubmit = async () => {
     if (!addForm.id.trim() || !addForm.name.trim() || !addForm.phone.trim()) {
       setAddError('모든 항목을 입력해 주세요.')
       return
     }
     setSaving(true)
+    setSmsResult(null)
+
+    const brandName = BRAND_OPTIONS.find(b => b.key === addForm.brand)?.name ?? addForm.brand
+
     const { error } = await supabase.from('orders').insert({
-      id: addForm.id.trim(),
-      name: addForm.name.trim(),
-      phone: addForm.phone.trim(),
-      status: 'waiting',
+      id:            addForm.id.trim(),
+      name:          addForm.name.trim(),
+      phone:         addForm.phone.trim(),
+      status:        'waiting',
       registered_at: nowStr(),
     })
-    setSaving(false)
     if (error) {
+      setSaving(false)
       setAddError(error.code === '23505' ? '이미 존재하는 주문번호입니다.' : '저장 오류가 발생했습니다.')
       return
     }
+
+    // 알리고 SMS 발송
+    try {
+      const smsRes = await fetch('/api/send-sms', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          phone:     addForm.phone.trim(),
+          orderId:   addForm.id.trim(),
+          brandName,
+          brandKey:  addForm.brand,
+          seller:    addForm.seller.trim(),
+        }),
+      })
+      const smsData = await smsRes.json()
+      setSmsResult(smsData)
+    } catch (e) {
+      setSmsResult({ ok: false, message: 'SMS 요청 실패: ' + e.message })
+    }
+
+    setSaving(false)
     await fetchOrders()
-    setAddForm({ id: '', name: '', phone: '' })
-    setAddError('')
-    setAddOpen(false)
   }
 
   // 접수완료 → 처리완료
@@ -267,41 +296,91 @@ export default function AdminDashboard() {
       {/* 고객 추가 모달 */}
       {addOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
-          onClick={() => { setAddOpen(false); setAddError('') }}>
+          onClick={() => { if (!smsResult) { setAddOpen(false); setAddError('') } }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
             onClick={e => e.stopPropagation()}>
-            <h2 className="text-base font-bold text-gray-900 mb-1">고객 추가</h2>
-            <p className="text-xs text-gray-400 mb-5">알림톡을 발송한 고객 정보를 등록합니다.</p>
-            <div className="space-y-3">
-              {[
-                { label: '주문번호', key: 'id', placeholder: 'ORD-001' },
-                { label: '수령인 성함', key: 'name', placeholder: '홍길동' },
-                { label: '연락처', key: 'phone', placeholder: '01012345678' },
-              ].map(field => (
-                <div key={field.key}>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{field.label}</label>
-                  <input
-                    type="text"
-                    value={addForm[field.key]}
-                    onChange={e => setAddForm(prev => ({ ...prev, [field.key]: e.target.value }))}
-                    placeholder={field.placeholder}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
-                               focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+
+            {/* SMS 발송 결과 화면 */}
+            {smsResult ? (
+              <>
+                <div className={`rounded-xl p-4 mb-5 text-center ${smsResult.ok ? 'bg-green-50' : 'bg-red-50'}`}>
+                  <p className={`text-2xl mb-2`}>{smsResult.ok ? '✓' : '✗'}</p>
+                  <p className={`text-sm font-semibold ${smsResult.ok ? 'text-green-700' : 'text-red-700'}`}>
+                    {smsResult.ok ? 'SMS 발송 완료' : 'SMS 발송 실패'}
+                  </p>
+                  {!smsResult.ok && (
+                    <p className="text-xs text-red-500 mt-1">{smsResult.message}</p>
+                  )}
                 </div>
-              ))}
-              {addError && <p className="text-xs text-red-500">{addError}</p>}
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={() => { setAddOpen(false); setAddError('') }}
-                className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">
-                취소
-              </button>
-              <button onClick={handleAddSubmit} disabled={saving}
-                className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                {saving ? '저장 중...' : '추가'}
-              </button>
-            </div>
+                <button
+                  onClick={() => { setAddOpen(false); setAddError(''); setSmsResult(null); setAddForm({ id: '', name: '', phone: '', brand: 'pyunhan', seller: '' }) }}
+                  className="w-full py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+                >
+                  확인
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-base font-bold text-gray-900 mb-1">고객 추가</h2>
+                <p className="text-xs text-gray-400 mb-5">정보 입력 후 등록하면 SMS가 자동 발송됩니다.</p>
+                <div className="space-y-3">
+                  {/* 브랜드 선택 */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">브랜드</label>
+                    <select
+                      value={addForm.brand}
+                      onChange={e => setAddForm(prev => ({ ...prev, brand: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                      {BRAND_OPTIONS.map(b => (
+                        <option key={b.key} value={b.key}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* 판매처 */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">판매처</label>
+                    <input
+                      type="text"
+                      value={addForm.seller}
+                      onChange={e => setAddForm(prev => ({ ...prev, seller: e.target.value }))}
+                      placeholder="쿠팡, 네이버 등 (선택)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  {[
+                    { label: '주문번호', key: 'id',    placeholder: 'ORD-001' },
+                    { label: '수령인 성함', key: 'name',  placeholder: '홍길동' },
+                    { label: '연락처',   key: 'phone', placeholder: '01012345678' },
+                  ].map(field => (
+                    <div key={field.key}>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">{field.label}</label>
+                      <input
+                        type="text"
+                        value={addForm[field.key]}
+                        onChange={e => setAddForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                        placeholder={field.placeholder}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  ))}
+                  {addError && <p className="text-xs text-red-500">{addError}</p>}
+                </div>
+                <div className="flex gap-2 mt-5">
+                  <button onClick={() => { setAddOpen(false); setAddError('') }}
+                    className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">
+                    취소
+                  </button>
+                  <button onClick={handleAddSubmit} disabled={saving}
+                    className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                    {saving ? 'SMS 발송 중...' : '추가 + SMS 발송'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
