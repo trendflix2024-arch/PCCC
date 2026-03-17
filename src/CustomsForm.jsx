@@ -4,6 +4,59 @@ import { supabase } from './supabaseClient'
 
 const UNIPASS_KEY = 'k250k296m013b127c080d010m6'
 
+// 브랜드 설정 (brand URL 파라미터로 선택)
+const BRANDS = {
+  pyunhan: {
+    name: '편한인생연구소',
+    tag: '통관번호 수정센터',
+    primary: '#2d6a4f',   // 딥 그린
+    secondary: '#40916c',
+    light: '#d8f3dc',
+    icon: (
+      <svg viewBox="0 0 40 40" fill="none" className="w-10 h-10">
+        <circle cx="20" cy="20" r="20" fill="rgba(255,255,255,0.15)"/>
+        <path d="M20 10c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10S25.5 10 20 10zm0 3c1.7 0 3 1.3 3 3s-1.3 3-3 3-3-1.3-3-3 1.3-3 3-3zm0 14.2c-2.5 0-4.7-1.3-6-3.2.03-2 4-3.1 6-3.1s5.97 1.1 6 3.1c-1.3 1.9-3.5 3.2-6 3.2z" fill="white"/>
+      </svg>
+    ),
+  },
+  cool: {
+    name: '쿨한인생연구소',
+    tag: '통관번호 수정센터',
+    primary: '#0077b6',   // 쿨 블루
+    secondary: '#0096c7',
+    light: '#caf0f8',
+    icon: (
+      <svg viewBox="0 0 40 40" fill="none" className="w-10 h-10">
+        <circle cx="20" cy="20" r="20" fill="rgba(255,255,255,0.15)"/>
+        <path d="M20 8l2.4 6.4 6.8.6-5.1 4.5 1.6 6.7L20 22.8l-5.7 3.4 1.6-6.7-5.1-4.5 6.8-.6z" fill="white"/>
+      </svg>
+    ),
+  },
+  bbunhan: {
+    name: '뻔한인생연구소',
+    tag: '통관번호 수정센터',
+    primary: '#6d28d9',   // 퍼플
+    secondary: '#7c3aed',
+    light: '#ede9fe',
+    icon: (
+      <svg viewBox="0 0 40 40" fill="none" className="w-10 h-10">
+        <circle cx="20" cy="20" r="20" fill="rgba(255,255,255,0.15)"/>
+        <path d="M20 11l2 6h6l-5 3.6 1.9 5.9L20 23l-4.9 3.5L17 20.6 12 17h6z" fill="white"/>
+        <circle cx="20" cy="20" r="3" fill="rgba(255,255,255,0.4)"/>
+      </svg>
+    ),
+  },
+}
+
+const DEFAULT_BRAND = {
+  name: '통관번호 수정센터',
+  tag: '개인통관고유부호 정정 신청',
+  primary: '#1352a2',
+  secondary: '#1a6bc7',
+  light: '#e8f0fe',
+  icon: null,
+}
+
 const MOCK_ORDER = {
   name: '홍길동',
   phone: '010-1234-5678',
@@ -14,6 +67,7 @@ const MOCK_ORDER = {
 export default function CustomsForm() {
   const [urlError, setUrlError]         = useState(null)
   const [orderId, setOrderId]           = useState('')
+  const [brand, setBrand]               = useState(DEFAULT_BRAND)
   const [name, setName]                 = useState('')
   const [phone, setPhone]               = useState('')
   const [pccc, setPccc]                 = useState('')
@@ -28,6 +82,8 @@ export default function CustomsForm() {
     const params = new URLSearchParams(window.location.search)
     const oid   = params.get('orderId')
     const token = params.get('token')
+    const b     = params.get('brand')
+    if (b && BRANDS[b]) setBrand(BRANDS[b])
     if (!oid || !token) {
       setUrlError('유효하지 않은 접근입니다. 발송된 알림톡 링크를 통해 다시 접속해 주세요.')
       return
@@ -118,11 +174,20 @@ export default function CustomsForm() {
   return (
     <div className="min-h-screen" style={{ background: '#f3f2f1' }}>
 
-      {/* ── 헤더 ── */}
-      <div style={{ background: '#1352a2' }} className="w-full">
-        <div className="px-4 py-4">
-          <h1 className="text-white font-bold text-lg leading-tight">개인통관고유부호 정정 신청</h1>
-          <p className="text-blue-200 text-xs mt-0.5">Personal Customs Clearance Code Update</p>
+      {/* ── 브랜드 헤더 ── */}
+      <div style={{ background: brand.primary }} className="w-full">
+        <div className="px-4 pt-5 pb-4 max-w-lg mx-auto">
+          <div className="flex items-center gap-3 mb-3">
+            {brand.icon}
+            <div>
+              <p className="text-white font-extrabold text-xl leading-tight tracking-tight">{brand.name}</p>
+              <p className="text-white/60 text-xs mt-0.5 tracking-wide">{brand.tag}</p>
+            </div>
+          </div>
+          <div style={{ background: 'rgba(0,0,0,0.15)' }} className="rounded-lg px-4 py-2.5">
+            <p className="text-white font-bold text-sm">개인통관고유부호 정정 신청</p>
+            <p className="text-white/60 text-xs mt-0.5">Personal Customs Clearance Code Update</p>
+          </div>
         </div>
       </div>
 
@@ -166,7 +231,7 @@ export default function CustomsForm() {
                         ? 'text-green-700 bg-green-50'
                         : 'text-gray-400 bg-gray-100'
                     }`}
-                    style={currentStep === s.n ? { background: '#1352a2' } : {}}>
+                    style={currentStep === s.n ? { background: brand.primary } : {}}>
                       <span>{currentStep > s.n ? '✓' : s.n}</span>
                       <span>{s.label}</span>
                     </div>
@@ -194,7 +259,7 @@ export default function CustomsForm() {
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-left space-y-2.5">
                     <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>정정된 통관 정보가 시스템에 반영됩니다.</p>
                     <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>처리 완료 후 배송이 재개됩니다.</p>
-                    <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>문의: 고객지원센터 ☎ 125</p>
+                    <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>문의: {brand.name} 고객센터 ☎ 125</p>
                   </div>
                 </div>
               </div>
@@ -202,21 +267,21 @@ export default function CustomsForm() {
               <>
                 {/* ── 안내 박스 ── */}
                 <div className="mb-3 bg-white rounded-xl overflow-hidden"
-                     style={{ border: '1px solid #d0ddef', borderLeft: '4px solid #1352a2' }}>
-                  <div className="px-4 py-2.5 border-b" style={{ background: '#eef2fa', borderColor: '#d0ddef' }}>
-                    <p className="text-sm font-bold" style={{ color: '#1352a2' }}>【필독】 개인통관고유부호 정정 안내</p>
+                     style={{ border: '1px solid #d0ddef', borderLeft: `4px solid ${brand.primary}` }}>
+                  <div className="px-4 py-2.5 border-b" style={{ background: brand.light, borderColor: '#d0ddef' }}>
+                    <p className="text-sm font-bold" style={{ color: brand.primary }}>【필독】 개인통관고유부호 정정 안내</p>
                   </div>
                   <div className="px-4 py-3 space-y-2">
                     <p className="text-sm text-gray-700 flex gap-2">
-                      <span className="shrink-0 font-bold" style={{ color: '#1352a2' }}>①</span>
+                      <span className="shrink-0 font-bold" style={{ color: brand.primary }}>①</span>
                       관세청 정책 변경으로 <strong>배송지 우편번호</strong>가 개인통관고유부호 등록 정보와 정확히 일치해야 통관이 가능합니다.
                     </p>
                     <p className="text-sm text-gray-700 flex gap-2">
-                      <span className="shrink-0 font-bold" style={{ color: '#1352a2' }}>②</span>
+                      <span className="shrink-0 font-bold" style={{ color: brand.primary }}>②</span>
                       미수정 시 수입 물품의 통관이 지연되거나 반송될 수 있습니다.
                     </p>
                     <p className="text-sm text-gray-700 flex gap-2">
-                      <span className="shrink-0 font-bold" style={{ color: '#1352a2' }}>③</span>
+                      <span className="shrink-0 font-bold" style={{ color: brand.primary }}>③</span>
                       입력 정보는 관세청 전자통관시스템(UNI-PASS)을 통해 실시간 검증됩니다.
                     </p>
                   </div>
@@ -312,9 +377,9 @@ export default function CustomsForm() {
                           type="button"
                           onClick={() => setIsPostcodeOpen(true)}
                           className="px-5 py-3 text-white text-sm font-bold rounded-lg transition-colors whitespace-nowrap"
-                          style={{ background: '#1352a2' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#003087'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#1352a2'}
+                          style={{ background: brand.primary }}
+                          onMouseEnter={e => e.currentTarget.style.background = brand.secondary}
+                          onMouseLeave={e => e.currentTarget.style.background = brand.primary}
                         >
                           주소 검색
                         </button>
@@ -334,7 +399,7 @@ export default function CustomsForm() {
                       className="w-full py-4 text-white font-bold text-base rounded-xl transition-colors
                                  flex items-center justify-center gap-2
                                  disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ background: verifyStatus === 'success' ? '#00703c' : '#1352a2' }}
+                      style={{ background: verifyStatus === 'success' ? '#00703c' : brand.primary }}
                     >
                       {verifyStatus === 'loading' ? (
                         <>
@@ -402,7 +467,7 @@ export default function CustomsForm() {
                       disabled={verifyStatus !== 'success' || isSubmitting || submitDone}
                       className="w-full py-4 text-white font-bold text-base rounded-xl transition-colors
                                  disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      style={{ background: '#003087' }}
+                      style={{ background: brand.primary }}
                     >
                       {isSubmitting ? (
                         <>
@@ -460,7 +525,7 @@ export default function CustomsForm() {
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200"
-                 style={{ background: '#1352a2' }}>
+                 style={{ background: brand.primary }}>
               <span className="font-bold text-white text-base">배송지 우편번호 검색</span>
               <button
                 onClick={() => setIsPostcodeOpen(false)}
