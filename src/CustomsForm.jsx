@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react'
 import DaumPostcode from 'react-daum-postcode'
 import { supabase } from './supabaseClient'
 
-const UNIPASS_KEY = 'k250k296m013b127c080d010m6'
-
 // 브랜드 설정 (brand URL 파라미터로 선택)
 const BRANDS = {
   pyunhan: {
@@ -78,8 +76,7 @@ export default function CustomsForm() {
   const [pccc, setPccc]                 = useState('')
   const [zipcode, setZipcode]           = useState('')
   const [isPostcodeOpen, setIsPostcodeOpen] = useState(false)
-  const [verifyStatus, setVerifyStatus] = useState('idle') // idle|loading|success|fail|error
-  const [verifyErrors, setVerifyErrors] = useState([])
+  const [verifyStatus, setVerifyStatus] = useState('idle') // idle|success
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitDone, setSubmitDone]     = useState(false)
 
@@ -118,39 +115,10 @@ export default function CustomsForm() {
     setVerifyStatus('idle')
   }
 
-  /* ── 관세청 UNI-PASS 검증 ── */
-  const verifyPCCC = async () => {
-    if (!isPcccValid || !zipcode) return
-    setVerifyStatus('loading')
-    setVerifyErrors([])
-    try {
-      const params = new URLSearchParams({
-        crkyCn: UNIPASS_KEY,
-        persEcm: pccc,
-        pltxNm: name.trim(),
-        cralTelno: phone.replace(/[^0-9]/g, ''),
-        custPsno: zipcode,
-      })
-      const res = await fetch(`https://unipass.customs.go.kr/ext/rest/persEcmQry/retrievePersEcm?${params}`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const xmlText = await res.text()
-      const doc = new DOMParser().parseFromString(xmlText, 'application/xml')
-      if (doc.querySelector('parsererror')) throw new Error('응답 파싱 오류')
-      const tCnt = parseInt(doc.querySelector('tCnt')?.textContent ?? '0', 10)
-      if (tCnt === 1) {
-        setVerifyStatus('success')
-      } else if (tCnt === -1) {
-        setVerifyStatus('error')
-      } else {
-        const msgs = [...doc.querySelectorAll('errMsgCn')].map(el => el.textContent.trim()).filter(Boolean)
-        setVerifyErrors(msgs)
-        setVerifyStatus('fail')
-      }
-    } catch (err) {
-      console.error('PCCC 검증 오류:', err)
-      setVerifyErrors([err.message])
-      setVerifyStatus('error')
-    }
+  /* ── 입력 정보 확인 ── */
+  const verifyPCCC = () => {
+    if (!isPcccValid || !zipcode || !name.trim() || !phone) return
+    setVerifyStatus('success')
   }
 
   /* ── 최종 제출 ── */
@@ -240,7 +208,7 @@ export default function CustomsForm() {
                    style={{ background: '#fafafa' }}>
                 {[
                   { n: 1, label: '정보확인' },
-                  { n: 2, label: '검증' },
+                  { n: 2, label: '확인' },
                   { n: 3, label: '완료' },
                 ].map((s, i) => (
                   <div key={s.n} className="flex items-center gap-1">
@@ -420,22 +388,13 @@ export default function CustomsForm() {
                     <button
                       type="button"
                       onClick={verifyPCCC}
-                      disabled={!isPcccValid || !zipcode || verifyStatus === 'loading'}
+                      disabled={!isPcccValid || !zipcode || !name.trim() || !phone}
                       className="w-full py-4 text-white font-bold text-base rounded-xl transition-colors
                                  flex items-center justify-center gap-2
                                  disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{ background: verifyStatus === 'success' ? '#00703c' : brand.primary }}
                     >
-                      {verifyStatus === 'loading' ? (
-                        <>
-                          <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          통관 정보 확인 중...
-                        </>
-                      ) : verifyStatus === 'success' ? (
-                        '✓ 확인 완료 — 다시 확인하기'
-                      ) : (
-                        '통관 정보 검증하기'
-                      )}
+                      {verifyStatus === 'success' ? '✓ 확인 완료 — 다시 확인하기' : '입력 정보 확인'}
                     </button>
 
                     {/* 검증 결과 */}
@@ -446,42 +405,10 @@ export default function CustomsForm() {
                           <path d="M12 1L3 5v6c0 5.25 3.75 10.15 9 11.35C17.25 21.15 21 16.25 21 11V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
                         </svg>
                         <div>
-                          <p className="text-sm font-bold" style={{ color: '#00703c' }}>정보 확인 완료</p>
+                          <p className="text-sm font-bold" style={{ color: '#00703c' }}>입력 정보 확인 완료</p>
                           <p className="text-sm mt-0.5" style={{ color: '#2e7d32' }}>
-                            입력하신 정보가 확인되었습니다. 아래 버튼을 눌러 수정 내용을 제출해 주세요.
+                            입력하신 정보를 확인했습니다. 아래 버튼을 눌러 신청을 완료해 주세요.
                           </p>
-                        </div>
-                      </div>
-                    )}
-                    {verifyStatus === 'fail' && (
-                      <div className="mt-3 rounded-xl border p-4" style={{ background: '#fef3f2', borderColor: '#fca5a5' }}>
-                        <p className="text-sm font-bold mb-1.5" style={{ color: '#d4351c' }}>✗ 정보가 일치하지 않습니다</p>
-                        <p className="text-sm mb-2" style={{ color: '#991b1b' }}>
-                          입력하신 정보를 다시 한번 확인해 주세요. 개인통관고유부호 조회는 관세청 UNI-PASS에서 하실 수 있습니다.
-                        </p>
-                        {verifyErrors.length > 0 && (
-                          <ul className="space-y-1">
-                            {verifyErrors.map((msg, i) => (
-                              <li key={i} className="text-sm flex gap-1" style={{ color: '#d4351c' }}>
-                                <span>•</span><span>{msg}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    )}
-                    {verifyStatus === 'error' && (
-                      <div className="mt-3 rounded-xl border p-4 flex gap-3"
-                           style={{ background: '#fff8e1', borderColor: '#ffe082' }}>
-                        <span className="text-base font-bold shrink-0" style={{ color: '#f57f17' }}>!</span>
-                        <div>
-                          <p className="text-sm font-bold" style={{ color: '#f57f17' }}>시스템 연결 오류</p>
-                          <p className="text-sm mt-0.5 text-gray-600">
-                            잠시 후 다시 시도해 주세요. 계속 문제가 발생하면 고객센터(☎ {brand.cs})로 문의해 주세요.
-                          </p>
-                          {verifyErrors.length > 0 && (
-                            <p className="text-xs mt-1 font-mono text-gray-500">{verifyErrors.join(' / ')}</p>
-                          )}
                         </div>
                       </div>
                     )}
