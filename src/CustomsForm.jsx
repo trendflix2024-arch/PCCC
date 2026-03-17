@@ -131,7 +131,7 @@ export default function CustomsForm() {
         cralTelno: phone.replace(/[^0-9]/g, ''),
         custPsno: zipcode,
       })
-      const res = await fetch(`/api/unipass/ext/rest/persEcmQry/retrievePersEcm?${params}`)
+      const res = await fetch(`/api/unipass?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const xmlText = await res.text()
       const doc = new DOMParser().parseFromString(xmlText, 'application/xml')
