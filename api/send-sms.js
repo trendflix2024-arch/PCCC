@@ -23,9 +23,7 @@ export default async function handler(req, res) {
     `▶ ${link}`,
   ].join('\n')
 
-  console.log('[sms] userid=' + process.env.ALIGO_USERID)
-  console.log('[sms] apikey_len=' + (process.env.ALIGO_APIKEY?.length ?? 'MISSING'))
-  console.log('[sms] sender=' + process.env.ALIGO_SENDER)
+  console.log(`[sms] uid=${process.env.ALIGO_USERID} keylen=${process.env.ALIGO_APIKEY?.length ?? 'MISSING'} sender=${process.env.ALIGO_SENDER}`)
 
   const params = new URLSearchParams({
     user_id:   process.env.ALIGO_USERID,
@@ -44,6 +42,7 @@ export default async function handler(req, res) {
       body:    params.toString(),
     })
     const data = await aligoRes.json()
+    console.log('[aligo] ' + JSON.stringify(data))
 
     // 알리고 result_code: '1' = 성공
     if (String(data.result_code) === '1') {
