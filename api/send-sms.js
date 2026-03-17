@@ -28,8 +28,8 @@ export default async function handler(req, res) {
   console.log('[sms] sender=' + process.env.ALIGO_SENDER)
 
   const params = new URLSearchParams({
-    userid:    process.env.ALIGO_USERID,
-    apikey:    process.env.ALIGO_APIKEY,
+    user_id:   process.env.ALIGO_USERID,
+    key:       process.env.ALIGO_APIKEY,
     sender:    process.env.ALIGO_SENDER,
     receiver:  phone.replace(/[^0-9]/g, ''),
     msg,
