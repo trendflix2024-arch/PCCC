@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(curl -v \"https://unipass.customs.go.kr:38010/ext/rest/persEcmQry/retrievePersEcm?crkyCd=j290y226z083j186j090t060o0&persEcm=P123456789012&pltxNm=%ED%99%8D%EA%B8%B8%EB%8F%99&cralTelno=01012345678&custPsno=06236\")",
+      "Bash(curl -s \"https://unipass.customs.go.kr:38010/ext/rest/persEcmQry/retrievePersEcm?crkyCn=j290y226z083j186j090t060o0&persEcm=P123456789012&pltxNm=%ED%99%8D%EA%B8%B8%EB%8F%99&cralTelno=01012345678&custPsno=06236\")",
+      "Bash(curl -s \"https://unipass.customs.go.kr:38010/ext/rest/pccSearch/retrievePccInfo?crkyCn=j290y226z083j186j090t060o0&pcc=P123456789012&brnm=%ED%99%8D%EA%B8%B8%EB%8F%99&lctnMblphon=01012345678&zip=06236\")",
+      "Bash(curl -sv \"https://unipass.customs.go.kr:38010/ext/rest/pccSearch/retrievePccInfo?crkyCn=j290y226z083j186j090t060o0&pcc=P123456789012\")",
+      "Bash(curl -s \"https://unipass.customs.go.kr:38010/ext/rest/persEcmQry/retrievePersEcm?crkyCn=k250k296m013b127c080d010m6&persEcm=P123456789012&pltxNm=%ED%99%8D%EA%B8%B8%EB%8F%99&cralTelno=01012345678&custPsno=06236\")",
+      "Bash(npm install:*)"
+    ]
+  }
+}
