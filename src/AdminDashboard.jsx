@@ -29,8 +29,12 @@ export default function AdminDashboard() {
   const [addError, setAddError]   = useState('')
   const [smsResult, setSmsResult] = useState(null)   // null | { ok, message }
   const [saving, setSaving]       = useState(false)
-  const [deletingId, setDeletingId] = useState(null)  // 삭제 확인 중인 행 ID
-  const [copiedId, setCopiedId]   = useState(null)    // 복사 완료 표시용
+  const [deletingId, setDeletingId]     = useState(null)
+  const [copiedId, setCopiedId]         = useState(null)
+  const [otherPhoneModal, setOtherPhoneModal] = useState(null)  // order | null
+  const [otherPhone, setOtherPhone]     = useState('')
+  const [sendingResend, setSendingResend] = useState(null)      // orderId | 'other' | null
+  const [resendResult, setResendResult] = useState(null)
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -82,7 +86,9 @@ export default function AdminDashboard() {
       id:            addForm.id.trim(),
       name:          addForm.name.trim(),
       phone:         addForm.phone.trim(),
+      brand:         addForm.brand,
       status:        'waiting',
+      sms_count:     0,
       registered_at: nowStr(),
     })
     if (error) {
@@ -91,7 +97,7 @@ export default function AdminDashboard() {
       return
     }
 
-    // 알리고 SMS 발송
+    // SMS 발송
     try {
       const smsRes = await fetch('/api/send-sms', {
         method:  'POST',
@@ -105,6 +111,9 @@ export default function AdminDashboard() {
         }),
       })
       const smsData = await smsRes.json()
+      if (smsData.ok) {
+        await supabase.from('orders').update({ sms_count: 1 }).eq('id', addForm.id.trim())
+      }
       setSmsResult(smsData)
     } catch (e) {
       setSmsResult({ ok: false, message: 'SMS 요청 실패: ' + e.message })
@@ -112,6 +121,42 @@ export default function AdminDashboard() {
 
     setSaving(false)
     await fetchOrders()
+  }
+
+  // SMS 공통 발송 + 횟수 증가
+  const sendSmsAndCount = async (phone, order, brandKeyOverride) => {
+    const brandKey  = brandKeyOverride ?? order.brand ?? 'pyunhan'
+    const brandName = BRAND_OPTIONS.find(b => b.key === brandKey)?.name ?? brandKey
+    try {
+      const res = await fetch('/api/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, orderId: order.id, brandName, brandKey, seller: '' }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        await supabase.from('orders').update({ sms_count: (order.sms_count ?? 0) + 1 }).eq('id', order.id)
+        await fetchOrders()
+      }
+      return data
+    } catch (e) {
+      return { ok: false, message: 'SMS 요청 실패: ' + e.message }
+    }
+  }
+
+  // 재발송 (같은 번호)
+  const handleResend = async (order) => {
+    setSendingResend(order.id)
+    await sendSmsAndCount(order.phone, order)
+    setSendingResend(null)
+  }
+
+  // 다른번호로 발송
+  const handleSendOther = async () => {
+    setSendingResend('other')
+    const data = await sendSmsAndCount(otherPhone, otherPhoneModal)
+    setResendResult(data)
+    setSendingResend(null)
   }
 
   // 대기중 행 삭제
@@ -267,6 +312,9 @@ export default function AdminDashboard() {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">우편번호</th>
                     </>
                   )}
+                  {activeTab === 'waiting' && (
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">발송횟수</th>
+                  )}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     {activeTab === 'waiting' ? '등록일시' : activeTab === 'pending_resubmit' ? '수정일시' : '처리일시'}
                   </th>
@@ -300,6 +348,11 @@ export default function AdminDashboard() {
                           <td className="px-4 py-3 font-mono text-gray-700">{order.zipcode ?? '-'}</td>
                         </>
                       )}
+                      {activeTab === 'waiting' && (
+                        <td className="px-4 py-3 text-center text-sm font-medium text-gray-600">
+                          {order.sms_count ?? 0}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-gray-500">
                         {order.registered_at ?? order.updated_at ?? '-'}
                       </td>
@@ -314,20 +367,26 @@ export default function AdminDashboard() {
                                 className="text-gray-400 hover:underline">취소</button>
                             </span>
                           ) : (
-                            <span className="flex items-center gap-2">
-                              <button
-                                onClick={() => copyLink(order)}
-                                className="text-xs text-indigo-500 hover:text-indigo-700"
-                                title="고객 링크 복사"
-                              >
-                                {copiedId === order.id ? '복사됨 ✓' : '링크복사'}
+                            <span className="flex items-center gap-2 flex-wrap">
+                              <button onClick={() => copyLink(order)}
+                                className="text-xs text-indigo-400 hover:text-indigo-600">
+                                {copiedId === order.id ? '복사됨✓' : '링크복사'}
                               </button>
                               <button
-                                onClick={() => setDeletingId(order.id)}
-                                className="text-xs text-red-400 hover:text-red-600"
+                                onClick={() => handleResend(order)}
+                                disabled={sendingResend === order.id}
+                                className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-40"
                               >
-                                삭제
+                                {sendingResend === order.id ? '발송중...' : '재발송'}
                               </button>
+                              <button
+                                onClick={() => { setOtherPhoneModal(order); setOtherPhone(''); setResendResult(null) }}
+                                className="text-xs text-violet-500 hover:text-violet-700"
+                              >
+                                다른번호
+                              </button>
+                              <button onClick={() => setDeletingId(order.id)}
+                                className="text-xs text-red-400 hover:text-red-600">삭제</button>
                             </span>
                           )}
                         </td>
@@ -429,6 +488,56 @@ export default function AdminDashboard() {
                     className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                     {saving ? 'SMS 발송 중...' : '추가 + SMS 발송'}
                   </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 다른번호로 발송 모달 */}
+      {otherPhoneModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
+          onClick={() => { if (!sendingResend) { setOtherPhoneModal(null); setResendResult(null) } }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            {resendResult ? (
+              <>
+                <div className={`rounded-xl p-4 mb-5 text-center ${resendResult.ok ? 'bg-green-50' : 'bg-red-50'}`}>
+                  <p className="text-2xl mb-2">{resendResult.ok ? '✓' : '✗'}</p>
+                  <p className={`text-sm font-semibold ${resendResult.ok ? 'text-green-700' : 'text-red-700'}`}>
+                    {resendResult.ok ? 'SMS 발송 완료' : 'SMS 발송 실패'}
+                  </p>
+                  {!resendResult.ok && <p className="text-xs text-red-500 mt-1">{resendResult.message}</p>}
+                </div>
+                <button
+                  onClick={() => { setOtherPhoneModal(null); setResendResult(null) }}
+                  className="w-full py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+                >확인</button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-base font-bold text-gray-900 mb-1">다른번호로 발송</h2>
+                <p className="text-xs text-gray-400 mb-4">주문번호: {otherPhoneModal.id} · {otherPhoneModal.name}</p>
+                <label className="block text-xs font-medium text-gray-600 mb-1">발송할 번호</label>
+                <input
+                  type="tel"
+                  value={otherPhone}
+                  onChange={e => setOtherPhone(e.target.value)}
+                  placeholder="01012345678"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4
+                             focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setOtherPhoneModal(null); setOtherPhone('') }}
+                    className="flex-1 py-2.5 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-gray-50"
+                  >취소</button>
+                  <button
+                    onClick={handleSendOther}
+                    disabled={!otherPhone.trim() || sendingResend === 'other'}
+                    className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg
+                               hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >{sendingResend === 'other' ? '발송중...' : 'SMS 발송'}</button>
                 </div>
               </>
             )}
