@@ -131,7 +131,7 @@ export default function CustomsForm() {
         cralTelno: phone.replace(/[^0-9]/g, ''),
         custPsno: zipcode,
       })
-      const res = await fetch(`https://shy-boat-1060.trendflix2024.workers.dev/?${params}`)
+      const res = await fetch(`https://unipass.customs.go.kr/ext/rest/persEcmQry/retrievePersEcm?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const xmlText = await res.text()
       const doc = new DOMParser().parseFromString(xmlText, 'application/xml')
