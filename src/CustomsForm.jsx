@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import DaumPostcode from 'react-daum-postcode'
 import { supabase } from './supabaseClient'
 
+const NCLOUD_PROXY_URL = 'https://kr.apigw.ntruss.com/api/v1/web/vKFGaASNuaM8/default/unipass-proxy'
+const UNIPASS_KEY = 'k250k296m013b127c080d010m6'
+
 // 브랜드 설정 (brand URL 파라미터로 선택)
 const BRANDS = {
   pyunhan: {
@@ -76,7 +79,8 @@ export default function CustomsForm() {
   const [pccc, setPccc]                 = useState('')
   const [zipcode, setZipcode]           = useState('')
   const [isPostcodeOpen, setIsPostcodeOpen] = useState(false)
-  const [verifyStatus, setVerifyStatus] = useState('idle') // idle|success
+  const [verifyStatus, setVerifyStatus] = useState('idle') // idle|loading|success|fail|error
+  const [verifyError, setVerifyError]   = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitDone, setSubmitDone]     = useState(false)
 
@@ -107,18 +111,39 @@ export default function CustomsForm() {
   const handlePcccChange = (e) => {
     setPccc(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 13))
     setVerifyStatus('idle')
+    setVerifyError('')
   }
 
   const handlePostcodeSelect = (data) => {
     setZipcode(data.zonecode)
     setIsPostcodeOpen(false)
     setVerifyStatus('idle')
+    setVerifyError('')
   }
 
-  /* ── 입력 정보 확인 ── */
-  const verifyPCCC = () => {
+  /* ── UNI-PASS 검증 ── */
+  const verifyPCCC = async () => {
     if (!isPcccValid || !zipcode || !name.trim() || !phone) return
-    setVerifyStatus('success')
+    setVerifyStatus('loading')
+    setVerifyError('')
+    try {
+      const params = new URLSearchParams({
+        crkyCn: UNIPASS_KEY,
+        prsEcmNo: pccc,
+        nmKor: name.trim(),
+      })
+      const res = await fetch(`${NCLOUD_PROXY_URL}?${params}`)
+      const data = await res.json()
+      if (data.rsltCd === '00') {
+        setVerifyStatus('success')
+      } else {
+        setVerifyStatus('fail')
+        setVerifyError('통관부호 또는 성함이 일치하지 않습니다. 관세청 사이트에서 등록 정보를 확인해 주세요.')
+      }
+    } catch {
+      setVerifyStatus('error')
+      setVerifyError('검증 서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    }
   }
 
   /* ── 최종 제출 ── */
@@ -297,7 +322,7 @@ export default function CustomsForm() {
                       <input
                         type="text"
                         value={name}
-                        onChange={e => { setName(e.target.value); setVerifyStatus('idle') }}
+                        onChange={e => { setName(e.target.value); setVerifyStatus('idle'); setVerifyError('') }}
                         placeholder="성함을 입력해 주세요"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
                                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
@@ -313,7 +338,7 @@ export default function CustomsForm() {
                       <input
                         type="tel"
                         value={phone}
-                        onChange={e => { setPhone(e.target.value); setVerifyStatus('idle') }}
+                        onChange={e => { setPhone(e.target.value); setVerifyStatus('idle'); setVerifyError('') }}
                         placeholder="010-0000-0000"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
                                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
@@ -388,13 +413,22 @@ export default function CustomsForm() {
                     <button
                       type="button"
                       onClick={verifyPCCC}
-                      disabled={!isPcccValid || !zipcode || !name.trim() || !phone}
+                      disabled={!isPcccValid || !zipcode || !name.trim() || !phone || verifyStatus === 'loading'}
                       className="w-full py-4 text-white font-bold text-base rounded-xl transition-colors
                                  flex items-center justify-center gap-2
                                  disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{ background: verifyStatus === 'success' ? '#00703c' : brand.primary }}
                     >
-                      {verifyStatus === 'success' ? '✓ 확인 완료 — 다시 확인하기' : '입력 정보 확인'}
+                      {verifyStatus === 'loading' ? (
+                        <>
+                          <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          통관 정보 검증 중...
+                        </>
+                      ) : verifyStatus === 'success' ? (
+                        '✓ 검증 완료 — 다시 확인하기'
+                      ) : (
+                        '통관 정보 검증하기'
+                      )}
                     </button>
 
                     {/* 검증 결과 */}
@@ -405,10 +439,24 @@ export default function CustomsForm() {
                           <path d="M12 1L3 5v6c0 5.25 3.75 10.15 9 11.35C17.25 21.15 21 16.25 21 11V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
                         </svg>
                         <div>
-                          <p className="text-sm font-bold" style={{ color: '#00703c' }}>입력 정보 확인 완료</p>
+                          <p className="text-sm font-bold" style={{ color: '#00703c' }}>관세청 검증 완료</p>
                           <p className="text-sm mt-0.5" style={{ color: '#2e7d32' }}>
-                            입력하신 정보를 확인했습니다. 아래 버튼을 눌러 신청을 완료해 주세요.
+                            통관 정보가 확인되었습니다. 아래 버튼을 눌러 신청을 완료해 주세요.
                           </p>
+                        </div>
+                      </div>
+                    )}
+                    {(verifyStatus === 'fail' || verifyStatus === 'error') && (
+                      <div className="mt-3 rounded-xl border p-4 flex gap-3"
+                           style={{ background: '#fff3f2', borderColor: '#f5c6c2' }}>
+                        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#d4351c' }} fill="currentColor">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                        </svg>
+                        <div>
+                          <p className="text-sm font-bold" style={{ color: '#d4351c' }}>
+                            {verifyStatus === 'fail' ? '검증 실패' : '연결 오류'}
+                          </p>
+                          <p className="text-sm mt-0.5 text-gray-700">{verifyError}</p>
                         </div>
                       </div>
                     )}
