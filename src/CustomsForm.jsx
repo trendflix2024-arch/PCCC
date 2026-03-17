@@ -9,6 +9,7 @@ const BRANDS = {
   pyunhan: {
     name: '편한인생연구소',
     tag: '통관번호 수정센터',
+    cs: '0000-0000',      // ← 실제 CS 번호로 변경
     primary: '#2d6a4f',   // 딥 그린
     secondary: '#40916c',
     light: '#d8f3dc',
@@ -22,6 +23,7 @@ const BRANDS = {
   cool: {
     name: '쿨한인생연구소',
     tag: '통관번호 수정센터',
+    cs: '0000-0000',      // ← 실제 CS 번호로 변경
     primary: '#0077b6',   // 쿨 블루
     secondary: '#0096c7',
     light: '#caf0f8',
@@ -35,6 +37,7 @@ const BRANDS = {
   bbunhan: {
     name: '뻔한인생연구소',
     tag: '통관번호 수정센터',
+    cs: '0000-0000',      // ← 실제 CS 번호로 변경
     primary: '#6d28d9',   // 퍼플
     secondary: '#7c3aed',
     light: '#ede9fe',
@@ -51,6 +54,7 @@ const BRANDS = {
 const DEFAULT_BRAND = {
   name: '통관번호 수정센터',
   tag: '개인통관고유부호 정정 신청',
+  cs: '고객센터',
   primary: '#1352a2',
   secondary: '#1a6bc7',
   light: '#e8f0fe',
@@ -275,7 +279,7 @@ export default function CustomsForm() {
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-left space-y-2.5">
                     <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>정정된 통관 정보가 시스템에 반영됩니다.</p>
                     <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>처리 완료 후 배송이 재개됩니다.</p>
-                    <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>문의: {brand.name} 고객센터 ☎ 125</p>
+                    <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>문의: {brand.name} 고객센터 ☎ {brand.cs}</p>
                   </div>
                 </div>
               </div>
@@ -285,20 +289,25 @@ export default function CustomsForm() {
                 <div className="mb-3 bg-white rounded-xl overflow-hidden"
                      style={{ border: '1px solid #d0ddef', borderLeft: `4px solid ${brand.primary}` }}>
                   <div className="px-4 py-2.5 border-b" style={{ background: brand.light, borderColor: '#d0ddef' }}>
-                    <p className="text-sm font-bold" style={{ color: brand.primary }}>【필독】 개인통관고유부호 정정 안내</p>
+                    <p className="text-sm font-bold leading-snug" style={{ color: brand.primary }}>
+                      고객님의 빠른 상품 수령을 위한 통관 정보 수정 안내
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: brand.primary, opacity: 0.75 }}>
+                      관세청 통관 기준 강화로 인해 확인이 필요합니다
+                    </p>
                   </div>
                   <div className="px-4 py-3 space-y-2" style={{ wordBreak: 'keep-all' }}>
                     <p className="text-sm text-gray-700 flex gap-2">
                       <span className="shrink-0 font-bold" style={{ color: brand.primary }}>①</span>
-                      관세청 정책 변경으로 <strong>배송지 우편번호</strong>가 개인통관고유부호 등록 정보와 정확히 일치해야 통관이 가능합니다.
+                      관세청 기준 변경으로 <strong>배송지 우편번호</strong>가 개인통관고유부호에 등록된 정보와 일치해야 통관이 진행됩니다.
                     </p>
                     <p className="text-sm text-gray-700 flex gap-2">
                       <span className="shrink-0 font-bold" style={{ color: brand.primary }}>②</span>
-                      미수정 시 수입 물품의 통관이 지연되거나 반송될 수 있습니다.
+                      정보가 일치하지 않으면 상품 통관이 지연되거나 반송될 수 있어 고객님께 안내드립니다.
                     </p>
                     <p className="text-sm text-gray-700 flex gap-2">
                       <span className="shrink-0 font-bold" style={{ color: brand.primary }}>③</span>
-                      입력 정보는 관세청 전자통관시스템(UNI-PASS)을 통해 실시간 검증됩니다.
+                      입력하신 정보는 관세청 전자통관시스템(UNI-PASS) 검증 목적으로만 안전하게 사용됩니다.
                     </p>
                   </div>
                 </div>
@@ -420,12 +429,12 @@ export default function CustomsForm() {
                       {verifyStatus === 'loading' ? (
                         <>
                           <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          관세청 UNI-PASS 검증 중...
+                          통관 정보 확인 중...
                         </>
                       ) : verifyStatus === 'success' ? (
-                        '✓ 검증 완료 — 재검증하기'
+                        '✓ 확인 완료 — 다시 확인하기'
                       ) : (
-                        '관세청 UNI-PASS 검증 요청'
+                        '통관 정보 검증하기'
                       )}
                     </button>
 
@@ -437,18 +446,18 @@ export default function CustomsForm() {
                           <path d="M12 1L3 5v6c0 5.25 3.75 10.15 9 11.35C17.25 21.15 21 16.25 21 11V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
                         </svg>
                         <div>
-                          <p className="text-sm font-bold" style={{ color: '#00703c' }}>관세청 검증 완료</p>
+                          <p className="text-sm font-bold" style={{ color: '#00703c' }}>정보 확인 완료</p>
                           <p className="text-sm mt-0.5" style={{ color: '#2e7d32' }}>
-                            입력하신 정보가 관세청 시스템과 일치합니다. 아래 버튼으로 최종 신청을 완료해 주십시오.
+                            입력하신 정보가 확인되었습니다. 아래 버튼을 눌러 수정 내용을 제출해 주세요.
                           </p>
                         </div>
                       </div>
                     )}
                     {verifyStatus === 'fail' && (
                       <div className="mt-3 rounded-xl border p-4" style={{ background: '#fef3f2', borderColor: '#fca5a5' }}>
-                        <p className="text-sm font-bold mb-1.5" style={{ color: '#d4351c' }}>✗ 검증 불일치</p>
+                        <p className="text-sm font-bold mb-1.5" style={{ color: '#d4351c' }}>✗ 정보가 일치하지 않습니다</p>
                         <p className="text-sm mb-2" style={{ color: '#991b1b' }}>
-                          입력하신 정보가 관세청 등록 정보와 일치하지 않습니다. 아래 사항을 확인해 주세요.
+                          입력하신 정보를 다시 한번 확인해 주세요. 개인통관고유부호 조회는 관세청 UNI-PASS에서 하실 수 있습니다.
                         </p>
                         {verifyErrors.length > 0 && (
                           <ul className="space-y-1">
@@ -468,7 +477,7 @@ export default function CustomsForm() {
                         <div>
                           <p className="text-sm font-bold" style={{ color: '#f57f17' }}>시스템 연결 오류</p>
                           <p className="text-sm mt-0.5 text-gray-600">
-                            관세청 서버와의 연결에 실패했습니다. 잠시 후 다시 시도해 주시거나 고객지원센터(☎ 125)로 문의해 주세요.
+                            잠시 후 다시 시도해 주세요. 계속 문제가 발생하면 고객센터(☎ {brand.cs})로 문의해 주세요.
                           </p>
                         </div>
                       </div>
@@ -495,7 +504,7 @@ export default function CustomsForm() {
                       )}
                     </button>
                     <p className="text-center text-sm text-gray-400 mt-2">
-                      관세청 검증 완료 후 제출 버튼이 활성화됩니다
+                      정보 확인 완료 후 제출 버튼이 활성화됩니다
                     </p>
                   </div>
                 </div>
@@ -504,24 +513,31 @@ export default function CustomsForm() {
 
             {/* ── 푸터 ── */}
             <div className="mt-5 pb-8">
-              <div className="border-t border-gray-300 pt-4 space-y-2">
+              <div className="border-t border-gray-200 pt-4 space-y-3">
+                {/* CS 연락처 */}
+                <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-400">고객센터</p>
+                    <p className="text-base font-bold text-gray-800 mt-0.5">☎ {brand.cs}</p>
+                  </div>
+                  <p className="text-xs text-gray-400 text-right leading-snug">
+                    평일 09:00 ~ 18:00<br/>
+                    <span className="text-gray-300">(주말·공휴일 휴무)</span>
+                  </p>
+                </div>
+                {/* 보안 배지 */}
                 <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-gray-400">
                   <span className="flex items-center gap-1">
                     <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor"><path d="M12 1L3 5v6c0 5.25 3.75 10.15 9 11.35C17.25 21.15 21 16.25 21 11V5l-9-4z"/></svg>
                     SSL 보안 암호화
                   </span>
                   <span>|</span>
-                  <span>관세청 UNI-PASS 연동</span>
-                  <span>|</span>
                   <span>개인정보보호법 준수</span>
                 </div>
-                <p className="text-center text-sm text-gray-500">
-                  고객지원센터 ☎ <strong>125</strong>
-                  <span className="text-gray-300 mx-1.5">|</span>
-                  평일 09:00 ~ 18:00
-                </p>
-                <p className="text-center text-xs text-gray-300 leading-relaxed">
-                  수집된 개인정보는 통관 업무 외 목적으로 사용되지 않습니다.
+                {/* 면책 고지 */}
+                <p className="text-center text-xs text-gray-400 leading-relaxed" style={{ wordBreak: 'keep-all' }}>
+                  본 페이지는 <strong>{brand.name}</strong>에서 고객님의 원활한 통관을 위해 제공하는 서비스입니다.<br/>
+                  입력하신 정보는 관세청 API 검증 목적으로만 안전하게 사용됩니다.
                 </p>
               </div>
             </div>
