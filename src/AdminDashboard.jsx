@@ -85,7 +85,7 @@ export default function AdminDashboard() {
     })
     if (error) {
       setSaving(false)
-      setAddError(error.code === '23505' ? '이미 존재하는 주문번호입니다.' : '저장 오류가 발생했습니다.')
+      setAddError(error.code === '23505' ? '이미 존재하는 주문번호입니다.' : `저장 오류: ${error.message} (${error.code})`)
       return
     }
 
