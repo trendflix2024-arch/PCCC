@@ -1,4 +1,16 @@
-// Vercel 서버리스 함수 — 알리고 SMS 발송
+// Vercel 서버리스 함수 — 솔라피 SMS 발송
+import crypto from 'crypto'
+
+function solapiAuth() {
+  const date = new Date().toISOString()
+  const salt = crypto.randomBytes(8).toString('hex')
+  const signature = crypto
+    .createHmac('sha256', process.env.SOLAPI_API_SECRET)
+    .update(date + salt)
+    .digest('hex')
+  return `HMAC-SHA256 apiKey=${process.env.SOLAPI_API_KEY}, date=${date}, salt=${salt}, signature=${signature}`
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -13,8 +25,8 @@ export default async function handler(req, res) {
   const baseUrl = 'https://pccc-six.vercel.app'
   const link = `${baseUrl}/?orderId=${encodeURIComponent(orderId)}&token=ok&brand=${brandKey || ''}&seller=${encodeURIComponent(seller || '')}`
 
-  const title = `[${brandName}] 통관정보 수정 안내`
-  const msg = [
+  const subject = `[${brandName}] 통관정보 수정 안내`
+  const text = [
     `[${brandName}] 통관정보 수정 안내`,
     ``,
     `고객님, 주문하신 상품의 통관 처리를 위해 개인통관고유부호 확인이 필요합니다.`,
@@ -23,36 +35,35 @@ export default async function handler(req, res) {
     `▶ ${link}`,
   ].join('\n')
 
-  const myIp = await fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>d.ip).catch(()=>'unknown')
-  console.log(`[sms] uid=${process.env.ALIGO_USERID} keylen=${process.env.ALIGO_APIKEY?.length ?? 'MISSING'} sender=${process.env.ALIGO_SENDER} outbound_ip=${myIp}`)
-
-  const params = new URLSearchParams({
-    user_id:   process.env.ALIGO_USERID,
-    key:       process.env.ALIGO_APIKEY,
-    sender:    process.env.ALIGO_SENDER,
-    receiver:  phone.replace(/[^0-9]/g, ''),
-    msg,
-    msg_type:  'LMS',
-    title,
-  })
-
   try {
-    const aligoRes = await fetch('https://apis.aligo.in/send/', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:    params.toString(),
+    const solapiRes = await fetch('https://api.solapi.com/messages/v4/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': solapiAuth(),
+      },
+      body: JSON.stringify({
+        message: {
+          to:      phone.replace(/[^0-9]/g, ''),
+          from:    process.env.SOLAPI_SENDER,
+          text,
+          type:    'LMS',
+          subject,
+        },
+      }),
     })
-    const data = await aligoRes.json()
-    console.log('[aligo] ' + JSON.stringify(data))
 
-    // 알리고 result_code: '1' = 성공
-    if (String(data.result_code) === '1') {
-      return res.status(200).json({ ok: true, msgid: data.msg_id })
+    const data = await solapiRes.json()
+    console.log('[solapi]', JSON.stringify(data))
+
+    if (solapiRes.ok && data.messageId) {
+      return res.status(200).json({ ok: true, msgid: data.messageId })
     } else {
-      return res.status(200).json({ ok: false, message: data.message, _ip: myIp })
+      const errMsg = data.errorMessage || data.message || '발송 실패'
+      return res.status(200).json({ ok: false, message: errMsg })
     }
   } catch (err) {
-    console.error('Aligo SMS error:', err)
+    console.error('Solapi SMS error:', err)
     return res.status(500).json({ ok: false, message: err.message })
   }
 }
