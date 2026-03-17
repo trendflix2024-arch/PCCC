@@ -23,6 +23,14 @@ export default async function handler(req, res) {
     `▶ ${link}`,
   ].join('\n')
 
+  console.log('[send-sms] env check:', {
+    userid_set: !!process.env.ALIGO_USERID,
+    apikey_set: !!process.env.ALIGO_APIKEY,
+    sender_set: !!process.env.ALIGO_SENDER,
+    userid_val: process.env.ALIGO_USERID,
+    apikey_len: process.env.ALIGO_APIKEY?.length,
+  })
+
   const params = new URLSearchParams({
     userid:    process.env.ALIGO_USERID,
     apikey:    process.env.ALIGO_APIKEY,
