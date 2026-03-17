@@ -309,7 +309,10 @@ export default function AdminDashboard() {
                     {smsResult.ok ? 'SMS 발송 완료' : 'SMS 발송 실패'}
                   </p>
                   {!smsResult.ok && (
-                    <p className="text-xs text-red-500 mt-1">{smsResult.message}</p>
+                    <>
+                      <p className="text-xs text-red-500 mt-1">{smsResult.message}</p>
+                      {smsResult._ip && <p className="text-xs text-gray-500 mt-1">Vercel IP: {smsResult._ip}</p>}
+                    </>
                   )}
                 </div>
                 <button
