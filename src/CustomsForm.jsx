@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import DaumPostcode from 'react-daum-postcode'
 import { supabase } from './supabaseClient'
 
-const NCLOUD_PROXY_URL = 'https://kr.apigw.ntruss.com/api/v1/web/vKFGaASNuaM8/default/unipass-proxy'
 const UNIPASS_KEY = 'k250k296m013b127c080d010m6'
 
 // 브랜드 설정 (brand URL 파라미터로 선택)
@@ -132,7 +131,7 @@ export default function CustomsForm() {
         prsEcmNo: pccc,
         nmKor: name.trim(),
       })
-      const res = await fetch(`${NCLOUD_PROXY_URL}?${params}`)
+      const res = await fetch(`/api/unipass?${params}`)
       const data = await res.json()
       if (data.rsltCd === '00') {
         setVerifyStatus('success')
