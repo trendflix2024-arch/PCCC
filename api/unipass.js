@@ -31,9 +31,15 @@ export default async function handler(req, res) {
     })
 
     const data = await upstream.json()
-    // NCloud CF blocking result: data.response.result contains our proxy's return value
+    // NCloud CF wraps action return in data.response.result
+    // Our proxy returns {statusCode, headers, body: JSON.stringify({rsltCd})}
+    // So body is a JSON string that needs parsing
     const result = data?.response?.result ?? data
-    return res.status(200).json(result)
+    let finalResult = result
+    if (typeof result?.body === 'string') {
+      try { finalResult = JSON.parse(result.body) } catch { /* keep result as-is */ }
+    }
+    return res.status(200).json(finalResult)
   } catch (err) {
     return res.status(502).json({ error: err.message })
   }
