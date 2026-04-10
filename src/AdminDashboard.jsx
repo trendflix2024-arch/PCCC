@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+
+const SEND_SMS_ENDPOINT = 'https://0sc3br4scq.apigw.ntruss.com/unipass/prod/send-sms'
 
 const TABS = [
   { key: 'waiting',          label: '대기중',   desc: '알림톡 발송 완료, 고객 미제출' },
@@ -9,9 +11,17 @@ const TABS = [
 
 const BRAND_OPTIONS = [
   { key: 'pyunhan', name: '편한인생연구소' },
+  { key: 'fun',     name: 'FUN한인생연구소' },
   { key: 'cool',    name: '쿨한인생연구소' },
   { key: 'bbunhan', name: '뻔한인생연구소' },
 ]
+
+const DEFAULT_SMS_TEMPLATE = `[{브랜드명}] 통관정보 수정 안내
+
+고객님, 주문하신 상품의 통관 처리를 위해 개인통관고유부호 확인이 필요합니다.
+
+아래 링크를 클릭하여 정보를 확인·수정해 주세요.
+▶ {링크}`
 
 function nowStr() {
   const d = new Date()
@@ -35,6 +45,10 @@ export default function AdminDashboard() {
   const [otherPhone, setOtherPhone]     = useState('')
   const [sendingResend, setSendingResend] = useState(null)      // orderId | 'other' | null
   const [resendResult, setResendResult] = useState(null)
+  const [smsTemplate, setSmsTemplate]   = useState(() => localStorage.getItem('smsTemplate') || DEFAULT_SMS_TEMPLATE)
+  const [smsEditOpen, setSmsEditOpen]   = useState(false)
+  const [smsEditDraft, setSmsEditDraft] = useState('')
+  const [editingMemo, setEditingMemo]   = useState(null)  // { id, value } | null
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -99,19 +113,22 @@ export default function AdminDashboard() {
 
     // SMS 발송
     try {
-      const smsRes = await fetch('/api/send-sms', {
+      const smsRes = await fetch(SEND_SMS_ENDPOINT, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          phone:     addForm.phone.trim(),
-          orderId:   addForm.id.trim(),
+          phone:         addForm.phone.trim(),
+          orderId:       addForm.id.trim(),
           brandName,
-          brandKey:  addForm.brand,
-          seller:    addForm.seller.trim(),
+          brandKey:      addForm.brand,
+          seller:        addForm.seller.trim(),
+          recipientName: addForm.name.trim(),
+          customTemplate: smsTemplate !== DEFAULT_SMS_TEMPLATE ? smsTemplate : undefined,
         }),
       })
       const smsData = await smsRes.json()
-      if (smsData.ok) {
+      if (smsData.ok || smsData.activationId) {
+        smsData.ok = true
         await supabase.from('orders').update({ sms_count: 1 }).eq('id', addForm.id.trim())
       }
       setSmsResult(smsData)
@@ -128,13 +145,19 @@ export default function AdminDashboard() {
     const brandKey  = brandKeyOverride ?? order.brand ?? 'pyunhan'
     const brandName = BRAND_OPTIONS.find(b => b.key === brandKey)?.name ?? brandKey
     try {
-      const res = await fetch('/api/send-sms', {
+      const res = await fetch(SEND_SMS_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, orderId: order.id, brandName, brandKey, seller: '' }),
+        body: JSON.stringify({
+          phone, orderId: order.id, brandName, brandKey,
+          seller: order.seller || '',
+          recipientName: order.name || '',
+          customTemplate: smsTemplate !== DEFAULT_SMS_TEMPLATE ? smsTemplate : undefined,
+        }),
       })
       const data = await res.json()
-      if (data.ok) {
+      if (data.ok || data.activationId) {
+        data.ok = true
         await supabase.from('orders').update({ sms_count: (order.sms_count ?? 0) + 1 }).eq('id', order.id)
         await fetchOrders()
       }
@@ -165,10 +188,25 @@ export default function AdminDashboard() {
     if (!error) { await fetchOrders(); setDeletingId(null) }
   }
 
+  // 메모 저장
+  const saveMemo = async (id, value) => {
+    await supabase.from('orders').update({ memo: value || null }).eq('id', id)
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, memo: value || null } : o))
+    setEditingMemo(null)
+  }
+
   // 고객 링크 복사
   const copyLink = (order) => {
-    const url = `https://pccc-six.vercel.app/?orderId=${encodeURIComponent(order.id)}&token=ok`
-    navigator.clipboard.writeText(url)
+    const base = 'http://pccc.s3-website.kr.object.ncloudstorage.com'
+    const url = `${base}/?orderId=${encodeURIComponent(order.id)}&token=ok&brand=${order.brand || ''}&seller=${encodeURIComponent(order.seller || '')}`
+    const el = document.createElement('textarea')
+    el.value = url
+    el.style.position = 'fixed'
+    el.style.opacity = '0'
+    document.body.appendChild(el)
+    el.select()
+    document.execCommand('copy')
+    document.body.removeChild(el)
     setCopiedId(order.id)
     setTimeout(() => setCopiedId(null), 2000)
   }
@@ -190,8 +228,8 @@ export default function AdminDashboard() {
   // CSV 다운로드
   const downloadCSV = () => {
     const rows = [
-      ['주문번호', '수령인', '연락처', '통관부호(PCCC)', '우편번호', '수정일시'],
-      ...pendingList.map(o => [o.id, o.name, o.phone ?? '-', o.pccc ?? '-', o.zipcode ?? '-', o.updated_at ?? '-']),
+      ['주문번호', '수령인', '연락처', '통관부호(PCCC)', '우편번호', '상세주소', '수정일시'],
+      ...pendingList.map(o => [o.id, o.name, o.phone ?? '-', o.pccc ?? '-', o.zipcode ?? '-', o.address ?? '-', o.updated_at ?? '-']),
     ]
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob(['\uFEFF' + rows.map(r => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' }))
@@ -208,12 +246,26 @@ export default function AdminDashboard() {
             <p className="text-xs text-gray-400 uppercase tracking-widest mb-0.5">Admin</p>
             <h1 className="text-xl font-bold text-gray-900">통관 지연 관리 대시보드</h1>
           </div>
-          <button
-            onClick={fetchOrders}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            ↻ 새로고침
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.location.href = '/returns'}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              📦 반품 재고
+            </button>
+            <button
+              onClick={() => { setSmsEditDraft(smsTemplate); setSmsEditOpen(true) }}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              ✉ 문자 설정
+            </button>
+            <button
+              onClick={fetchOrders}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              ↻ 새로고침
+            </button>
+          </div>
         </div>
       </header>
 
@@ -310,6 +362,7 @@ export default function AdminDashboard() {
                     <>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">통관부호 (PCCC)</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">우편번호</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">상세주소</th>
                     </>
                   )}
                   {activeTab === 'waiting' && (
@@ -318,20 +371,41 @@ export default function AdminDashboard() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     {activeTab === 'waiting' ? '등록일시' : activeTab === 'pending_resubmit' ? '수정일시' : '처리일시'}
                   </th>
-                  {activeTab === 'waiting' && (
+                  {(activeTab === 'waiting' || activeTab === 'done') && (
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">액션</th>
                   )}
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">메모</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {currentList.map(order => {
                   const isChecked = selected.includes(order.id)
+
+                  // 경고 조건 계산 (대기중 탭)
+                  const daysSince = (() => {
+                    if (activeTab !== 'waiting') return 0
+                    const base = order.registered_at || order.updated_at
+                    if (!base) return 0
+                    return Math.floor((Date.now() - new Date(base).getTime()) / 86400000)
+                  })()
+                  const isAlert    = activeTab === 'waiting' && ((order.sms_count ?? 0) > 3 || daysSince >= 3)
+                  const isCritical = activeTab === 'waiting' && daysSince >= 5
+
+                  // 경고 조건 계산 (접수완료 탭)
+                  const pendingDaysSince = (() => {
+                    if (activeTab !== 'pending_resubmit') return 0
+                    const base = order.updated_at || order.registered_at
+                    if (!base) return 0
+                    return Math.floor((Date.now() - new Date(base).getTime()) / 86400000)
+                  })()
+                  const isPendingLate = activeTab === 'pending_resubmit' && pendingDaysSince >= 1
+
                   return (
+                    <React.Fragment key={order.id}>
                     <tr
-                      key={order.id}
                       onClick={() => activeTab === 'pending_resubmit' && toggleOne(order.id)}
                       className={`transition-colors ${activeTab === 'pending_resubmit' ? 'cursor-pointer' : ''}
-                        ${isChecked ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
+                        ${isChecked ? 'bg-indigo-50' : isAlert ? 'row-alert' : 'hover:bg-gray-50'}`}
                     >
                       {activeTab === 'pending_resubmit' && (
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -340,12 +414,13 @@ export default function AdminDashboard() {
                         </td>
                       )}
                       <td className="px-4 py-3 font-mono text-gray-700 text-xs">{order.id}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{order.name}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{order.name}</td>
                       <td className="px-4 py-3 text-gray-600">{order.phone ?? '-'}</td>
                       {activeTab !== 'waiting' && (
                         <>
                           <td className="px-4 py-3 font-mono text-gray-700 tracking-wider text-xs">{order.pccc ?? '-'}</td>
                           <td className="px-4 py-3 font-mono text-gray-700">{order.zipcode ?? '-'}</td>
+                          <td className="px-4 py-3 text-gray-600 text-xs whitespace-normal break-all">{order.address || '-'}</td>
                         </>
                       )}
                       {activeTab === 'waiting' && (
@@ -356,7 +431,7 @@ export default function AdminDashboard() {
                       <td className="px-4 py-3 text-gray-500">
                         {order.registered_at ?? order.updated_at ?? '-'}
                       </td>
-                      {activeTab === 'waiting' && (
+                      {(activeTab === 'waiting' || activeTab === 'done') && (
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           {deletingId === order.id ? (
                             <span className="flex items-center gap-1.5 text-xs">
@@ -366,7 +441,7 @@ export default function AdminDashboard() {
                               <button onClick={() => setDeletingId(null)}
                                 className="text-gray-400 hover:underline">취소</button>
                             </span>
-                          ) : (
+                          ) : activeTab === 'waiting' ? (
                             <span className="flex items-center gap-2 flex-wrap">
                               <button onClick={() => copyLink(order)}
                                 className="text-xs text-indigo-400 hover:text-indigo-600">
@@ -388,10 +463,72 @@ export default function AdminDashboard() {
                               <button onClick={() => setDeletingId(order.id)}
                                 className="text-xs text-red-400 hover:text-red-600">삭제</button>
                             </span>
+                          ) : (
+                            <button onClick={() => setDeletingId(order.id)}
+                              className="text-xs text-red-400 hover:text-red-600">삭제</button>
                           )}
                         </td>
                       )}
+                      {/* 메모 — 항상 맨 오른쪽 */}
+                      <td className="px-3 py-3 relative w-[180px]" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={() => setEditingMemo(editingMemo?.id === order.id ? null : { id: order.id, value: order.memo || '' })}
+                          className={`text-xs text-left w-full rounded-lg px-2.5 py-1.5 border transition-colors truncate
+                            ${order.memo
+                              ? 'border-amber-200 bg-amber-50 text-gray-700 hover:bg-amber-100'
+                              : 'border-dashed border-gray-200 text-gray-300 hover:border-gray-300 hover:text-gray-400'}`}
+                          title={order.memo || ''}
+                        >
+                          {order.memo || '+ 메모 추가'}
+                        </button>
+                        {editingMemo?.id === order.id && (
+                          <div className="absolute z-50 top-full right-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-xl p-3">
+                            <textarea
+                              autoFocus
+                              rows={4}
+                              value={editingMemo.value}
+                              onChange={e => setEditingMemo({ id: order.id, value: e.target.value })}
+                              onKeyDown={e => { if (e.key === 'Escape') setEditingMemo(null) }}
+                              placeholder="메모를 입력하세요"
+                              className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-2 outline-none focus:ring-1 focus:ring-indigo-400 resize-none"
+                            />
+                            <div className="flex justify-between items-center mt-2">
+                              <button onClick={() => saveMemo(order.id, '')}
+                                className="text-xs text-gray-300 hover:text-red-400">삭제</button>
+                              <div className="flex gap-2">
+                                <button onClick={() => setEditingMemo(null)}
+                                  className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">취소</button>
+                                <button onClick={() => saveMemo(order.id, editingMemo.value)}
+                                  className="text-xs bg-indigo-500 text-white rounded-lg px-3 py-1 hover:bg-indigo-600">저장</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </td>
                     </tr>
+                    {isAlert && (
+                      <tr key={`${order.id}-alert`} className="bg-red-50">
+                        <td colSpan={7} className="px-4 py-2">
+                          <p className="text-xs text-red-600 font-medium">
+                            {isCritical
+                              ? '⚠ 발송 예정일이 초과되었습니다. 고객 사유로 반품을 접수하세요.'
+                              : '📞 수취인이 문자를 확인하지 않습니다. 직접 전화 통화를 해보세요.'}
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                    {isPendingLate && (
+                      <tr key={`${order.id}-pending-late`} className={pendingDaysSince >= 3 ? 'bg-red-50' : 'bg-orange-50'}>
+                        <td colSpan={9} className="px-4 py-2">
+                          <p className={`text-xs font-medium ${pendingDaysSince >= 3 ? 'text-red-600' : 'text-orange-600'}`}>
+                            {pendingDaysSince >= 3
+                              ? `🚨 접수된지 ${pendingDaysSince}일이 지났습니다. 서둘러 확인해주세요.`
+                              : `⏰ 접수된지 ${pendingDaysSince}일이 지났습니다. 서둘러 확인해주세요.`}
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   )
                 })}
               </tbody>
@@ -565,6 +702,75 @@ export default function AdminDashboard() {
               <button onClick={handleMarkDone} disabled={saving}
                 className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                 {saving ? '처리 중...' : '확인'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 문자 설정 모달 */}
+      {smsEditOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
+          onClick={() => setSmsEditOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}>
+            <h2 className="text-base font-bold text-gray-900 mb-1">발송 문자 설정</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              고객에게 발송되는 SMS 내용을 수정합니다. 아래 치환자를 사용할 수 있습니다.
+            </p>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {[
+                { tag: '{브랜드명}', desc: '업체명' },
+                { tag: '{링크}', desc: '고객 입력 링크' },
+                { tag: '{주문번호}', desc: '주문번호' },
+                { tag: '{수령인}', desc: '수령인 성함' },
+                { tag: '{판매처}', desc: '판매처' },
+              ].map(p => (
+                <button
+                  key={p.tag}
+                  type="button"
+                  onClick={() => setSmsEditDraft(prev => prev + p.tag)}
+                  className="px-2 py-1 text-xs bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-100 transition-colors"
+                  title={p.desc}
+                >
+                  {p.tag}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={smsEditDraft}
+              onChange={e => setSmsEditDraft(e.target.value)}
+              rows={8}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm leading-relaxed
+                         focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              placeholder="SMS 내용을 입력하세요..."
+            />
+            <p className="text-xs text-gray-400 mt-2 mb-4">
+              미리보기: {'{브랜드명}'} → 편한인생연구소, {'{링크}'} → 고객 링크 URL
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setSmsEditDraft(DEFAULT_SMS_TEMPLATE) }}
+                className="px-3 py-2.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                기본값 복원
+              </button>
+              <div className="flex-1" />
+              <button
+                onClick={() => setSmsEditOpen(false)}
+                className="px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  setSmsTemplate(smsEditDraft)
+                  localStorage.setItem('smsTemplate', smsEditDraft)
+                  setSmsEditOpen(false)
+                }}
+                className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+              >
+                저장
               </button>
             </div>
           </div>
