@@ -41,8 +41,18 @@ function unipassProxyPlugin() {
 }
 
 export default defineConfig({
+  base: './',  // Object Storage 정적 호스팅: 상대경로로 빌드
   plugins: [react(), tailwindcss(), unipassProxyPlugin()],
+  build: {
+    rollupOptions: {
+      output: {
+        assetFileNames: '[name]-[hash][extname]',
+        chunkFileNames: '[name]-[hash].js',
+        entryFileNames: '[name]-[hash].js',
+      },
+    },
+  },
   server: {
-    historyApiFallback: true,  // /admin 등 SPA 경로를 index.html로 서빙
+    historyApiFallback: true,
   },
 })

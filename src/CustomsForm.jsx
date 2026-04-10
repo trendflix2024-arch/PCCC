@@ -7,10 +7,10 @@ const BRANDS = {
   pyunhan: {
     name: '편한인생연구소',
     tag: '통관번호 수정센터',
-    cs: '0000-0000',      // ← 실제 CS 번호로 변경
-    primary: '#2d6a4f',   // 딥 그린
-    secondary: '#40916c',
-    light: '#d8f3dc',
+    kakao: 'http://pf.kakao.com/_bCylb/chat',
+    primary: '#1e5aab',   // 블루
+    secondary: '#2d7bd5',
+    light: '#e0edff',
     icon: (
       <svg viewBox="0 0 40 40" fill="none" className="w-10 h-10">
         <circle cx="20" cy="20" r="20" fill="rgba(255,255,255,0.15)"/>
@@ -21,7 +21,7 @@ const BRANDS = {
   cool: {
     name: '쿨한인생연구소',
     tag: '통관번호 수정센터',
-    cs: '0000-0000',      // ← 실제 CS 번호로 변경
+    kakao: 'http://pf.kakao.com/_bCylb/chat',
     primary: '#0077b6',   // 쿨 블루
     secondary: '#0096c7',
     light: '#caf0f8',
@@ -35,7 +35,7 @@ const BRANDS = {
   bbunhan: {
     name: '뻔한인생연구소',
     tag: '통관번호 수정센터',
-    cs: '0000-0000',      // ← 실제 CS 번호로 변경
+    kakao: 'http://pf.kakao.com/_bCylb/chat',
     primary: '#6d28d9',   // 퍼플
     secondary: '#7c3aed',
     light: '#ede9fe',
@@ -47,23 +47,30 @@ const BRANDS = {
       </svg>
     ),
   },
+  fun: {
+    name: 'FUN한인생연구소',
+    tag: '통관번호 수정센터',
+    kakao: 'http://pf.kakao.com/_bCylb/chat',
+    primary: '#d97706',   // 앰버
+    secondary: '#f59e0b',
+    light: '#fef3c7',
+    icon: (
+      <svg viewBox="0 0 40 40" fill="none" className="w-10 h-10">
+        <circle cx="20" cy="20" r="20" fill="rgba(255,255,255,0.15)"/>
+        <text x="20" y="26" textAnchor="middle" fontSize="18" fontWeight="bold" fill="white">F</text>
+      </svg>
+    ),
+  },
 }
 
 const DEFAULT_BRAND = {
   name: '통관번호 수정센터',
   tag: '개인통관고유부호 정정 신청',
-  cs: '고객센터',
+  kakao: 'http://pf.kakao.com/_bCylb/chat',
   primary: '#1352a2',
   secondary: '#1a6bc7',
   light: '#e8f0fe',
   icon: null,
-}
-
-const MOCK_ORDER = {
-  name: '홍길동',
-  phone: '010-1234-5678',
-  pccc: 'P123456789012',
-  zipcode: '06236',
 }
 
 export default function CustomsForm() {
@@ -75,6 +82,8 @@ export default function CustomsForm() {
   const [phone, setPhone]               = useState('')
   const [pccc, setPccc]                 = useState('')
   const [zipcode, setZipcode]           = useState('')
+  const [address, setAddress]           = useState('')
+  const [addressDetail, setAddressDetail] = useState('')
   const [isPostcodeOpen, setIsPostcodeOpen] = useState(false)
   const [verifyStatus, setVerifyStatus] = useState('idle') // idle|loading|success|fail|error
   const [verifyError, setVerifyError]   = useState('')
@@ -94,10 +103,6 @@ export default function CustomsForm() {
       return
     }
     setOrderId(oid)
-    setName(MOCK_ORDER.name)
-    setPhone(MOCK_ORDER.phone)
-    setPccc(MOCK_ORDER.pccc)
-    setZipcode(MOCK_ORDER.zipcode)
   }, [])
 
   const isPcccValid = pccc.length === 13 && pccc.startsWith('P')
@@ -112,12 +117,14 @@ export default function CustomsForm() {
 
   const handlePostcodeSelect = (data) => {
     setZipcode(data.zonecode)
+    setAddress(data.roadAddress || data.address)
+    setAddressDetail('')
     setIsPostcodeOpen(false)
     setVerifyStatus('idle'); setVerifyError('')
   }
 
   /* ── UNI-PASS 검증 (NCloud API Gateway → CF KR-2) ── */
-  const UNIPASS_KEY = 'k250k296m013b127c080d010m6'
+  const UNIPASS_KEY = 'z230e206b063c187w050l050y6'
   const NCLOUD_ENDPOINT = 'https://0sc3br4scq.apigw.ntruss.com/unipass/prod/'
 
   const verifyPCCC = async () => {
@@ -127,8 +134,10 @@ export default function CustomsForm() {
     try {
       const params = new URLSearchParams({
         crkyCn: UNIPASS_KEY,
-        prsEcmNo: pccc,
-        nmKor: name.trim(),
+        persEcm: pccc,
+        pltxNm: name.trim(),
+        cralTelno: phone.replace(/[^0-9]/g, ''),
+        custPsno: zipcode,
       })
       const res = await fetch(`${NCLOUD_ENDPOINT}?${params}`)
       const data = await res.json()
@@ -136,7 +145,13 @@ export default function CustomsForm() {
         setVerifyStatus('success')
       } else {
         setVerifyStatus('fail')
-        setVerifyError('통관부호 또는 성함이 일치하지 않습니다. 관세청 사이트에서 등록 정보를 확인해 주세요.')
+        const fieldErrors = {
+          persEcm: '개인통관고유부호가 유효하지 않습니다. 번호를 다시 확인해 주세요.',
+          pltxNm: '성함이 관세청 등록 정보와 일치하지 않습니다.',
+          cralTelno: '연락처가 관세청 등록 정보와 일치하지 않습니다.',
+          custPsno: '우편번호가 관세청 등록 정보와 일치하지 않습니다.',
+        }
+        setVerifyError(fieldErrors[data.field] || '입력하신 정보가 관세청 등록 정보와 일치하지 않습니다.')
       }
     } catch {
       setVerifyStatus('error')
@@ -156,6 +171,7 @@ export default function CustomsForm() {
       phone: phone.replace(/[^0-9]/g, ''),
       pccc,
       zipcode,
+      address: `${address} ${addressDetail}`.trim(),
       updated_at: updatedAt,
       status: 'pending_resubmit',
     })
@@ -170,83 +186,88 @@ export default function CustomsForm() {
 
   /* ────────────────── RENDER ────────────────── */
   return (
-    <div className="min-h-screen" style={{ background: '#f3f2f1' }}>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
 
       {/* ── 브랜드 헤더 ── */}
-      <div style={{ background: brand.primary }} className="w-full">
-        <div className="px-4 pt-5 pb-4 max-w-lg mx-auto">
-          <div className="flex items-center gap-3 mb-3">
+      <div className="w-full" style={{ background: `linear-gradient(135deg, ${brand.primary}, ${brand.secondary})` }}>
+        <div className="px-5 pt-8 pb-6 max-w-lg mx-auto">
+          <div className="flex items-center gap-3.5 mb-1">
             {brand.icon}
             <div>
-              <p className="text-white font-extrabold text-xl leading-tight tracking-tight">{brand.name}</p>
-              <p className="text-white/60 text-xs mt-0.5 tracking-wide">{brand.tag}</p>
+              <p className="text-white font-bold text-xl tracking-tight">{brand.name}</p>
+              <p className="text-white/50 text-xs mt-0.5 font-medium">{brand.tag}</p>
             </div>
           </div>
-          <div style={{ background: 'rgba(0,0,0,0.15)' }} className="rounded-lg px-4 py-2.5">
-            <p className="text-white font-bold text-sm">개인통관고유부호 정정 신청</p>
-            <p className="text-white/60 text-xs mt-0.5">Personal Customs Clearance Code Update</p>
-          </div>
         </div>
+        <div className="h-5 rounded-t-3xl bg-gradient-to-b from-gray-50 to-gray-50" />
       </div>
 
-      <div className="px-4 py-4 max-w-lg mx-auto">
+      <div className="px-5 -mt-1 max-w-lg mx-auto pb-8">
 
         {/* ── URL 오류 화면 ── */}
         {urlError ? (
-          <div className="bg-white border border-red-300 rounded-xl overflow-hidden">
-            <div className="bg-red-600 px-5 py-3">
-              <p className="text-white font-bold text-sm">접근 오류</p>
-            </div>
-            <div className="p-5 flex gap-3">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-              </svg>
-              <div>
-                <p className="text-sm text-gray-800 font-medium mb-1">유효하지 않은 접근입니다</p>
-                <p className="text-sm text-gray-600 leading-relaxed">{urlError}</p>
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden p-6">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                <svg viewBox="0 0 24 24" className="w-7 h-7 text-red-400" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
               </div>
+              <p className="text-base font-bold text-gray-800 mb-1">접근할 수 없습니다</p>
+              <p className="text-sm text-gray-500 leading-relaxed">{urlError}</p>
             </div>
           </div>
         ) : (
           <>
             {/* ── 접수 정보 카드 ── */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-3">
-              {/* 업체명·판매처·접수번호 */}
-              <div className="grid grid-cols-3 divide-x divide-gray-100">
-                <div className="px-3 py-3">
-                  <p className="text-xs text-gray-400 mb-0.5">업체명</p>
-                  <p className="text-sm font-bold text-gray-900 leading-tight">{brand.name}</p>
-                </div>
-                <div className="px-3 py-3">
-                  <p className="text-xs text-gray-400 mb-0.5">판매처</p>
-                  <p className="text-sm font-bold text-gray-900 leading-tight">{seller || '-'}</p>
-                </div>
-                <div className="px-3 py-3">
-                  <p className="text-xs text-gray-400 mb-0.5">접수번호</p>
-                  <p className="text-xs font-mono font-bold text-gray-900 leading-tight break-all">{orderId || '확인 중'}</p>
-                </div>
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
+              <div className="px-5 py-4 space-y-2.5">
+                {[
+                  { label: '업체명', value: brand.name },
+                  ...(seller ? [{ label: '판매처', value: seller }] : []),
+                  { label: '주문번호', value: orderId || '확인 중', mono: true },
+                ].map(item => (
+                  <div key={item.label} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-400">{item.label}</span>
+                    <span className={`text-sm font-semibold text-gray-800 ${item.mono ? 'font-mono text-xs' : ''}`}>
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
               </div>
               {/* 단계 표시 */}
-              <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-center gap-1"
-                   style={{ background: '#fafafa' }}>
+              <div className="px-5 py-3.5 border-t border-gray-100/80 flex items-center justify-center gap-2">
                 {[
                   { n: 1, label: '정보확인' },
                   { n: 2, label: '제출' },
                   { n: 3, label: '완료' },
                 ].map((s, i) => (
-                  <div key={s.n} className="flex items-center gap-1">
-                    <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                  <div key={s.n} className="flex items-center gap-2">
+                    <div className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${
                       currentStep === s.n
                         ? 'text-white'
                         : currentStep > s.n
-                        ? 'text-green-700 bg-green-50'
-                        : 'text-gray-400 bg-gray-100'
+                        ? 'text-green-600 bg-green-50'
+                        : 'text-gray-300 bg-gray-50'
                     }`}
-                    style={currentStep === s.n ? { background: brand.primary } : {}}>
-                      <span>{currentStep > s.n ? '✓' : s.n}</span>
+                    style={currentStep === s.n ? {
+                      background: `linear-gradient(135deg, ${brand.primary}, ${brand.secondary})`,
+                      boxShadow: `0 2px 8px ${brand.primary}40`
+                    } : {}}>
+                      {currentStep > s.n ? (
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                      ) : (
+                        <span>{s.n}</span>
+                      )}
                       <span>{s.label}</span>
                     </div>
-                    {i < 2 && <span className="text-gray-300 text-xs">›</span>}
+                    {i < 2 && (
+                      <svg className={`w-3 h-3 ${currentStep > s.n + 1 ? 'text-green-300' : 'text-gray-200'}`} viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
+                      </svg>
+                    )}
                   </div>
                 ))}
               </div>
@@ -254,168 +275,238 @@ export default function CustomsForm() {
 
             {/* ── 완료 화면 ── */}
             {submitDone ? (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-5 py-3 border-b border-gray-100" style={{ background: '#f0f7ee' }}>
-                  <p className="text-sm font-bold" style={{ color: '#00703c' }}>■ 정정 신청 접수 완료</p>
-                </div>
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <div className="p-8 text-center">
                   <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
-                       style={{ background: '#e8f5e9' }}>
-                    <svg viewBox="0 0 24 24" className="w-10 h-10" style={{ color: '#00703c' }} fill="currentColor">
+                       style={{
+                         background: 'linear-gradient(135deg, #d1fae5, #a7f3d0)',
+                         boxShadow: '0 4px 20px rgba(16, 185, 129, 0.2)'
+                       }}>
+                    <svg viewBox="0 0 24 24" className="w-10 h-10 text-emerald-600" fill="currentColor">
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                     </svg>
                   </div>
                   <h2 className="text-xl font-bold text-gray-900 mb-1">신청이 접수되었습니다</h2>
-                  <p className="text-sm text-gray-500 mb-5">접수번호: <span className="font-mono font-bold text-gray-700">{orderId}</span></p>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-left space-y-2.5">
-                    <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>정정된 통관 정보가 시스템에 반영됩니다.</p>
-                    <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>처리 완료 후 배송이 재개됩니다.</p>
-                    <p className="text-sm text-gray-600 flex gap-2"><span className="text-gray-400">•</span>문의: {brand.name} 고객센터 ☎ {brand.cs}</p>
+                  <p className="text-sm text-gray-400 mb-6">
+                    주문번호 <span className="font-mono font-semibold text-gray-600">{orderId}</span>
+                  </p>
+                  <div className="bg-gray-50 rounded-2xl p-5 text-left space-y-3">
+                    {[
+                      '정정된 통관 정보가 시스템에 반영됩니다.',
+                      '처리 완료 후 배송이 재개됩니다.',
+                    ].map((text, i) => (
+                      <p key={i} className="text-sm text-gray-500 flex gap-2.5 items-start">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0 mt-1.5" />
+                        {text}
+                      </p>
+                    ))}
                   </div>
+                  {brand.kakao && (
+                    <a
+                      href={brand.kakao}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold transition-all active:scale-[0.98]"
+                      style={{ background: '#FEE500', color: '#3C1E1E' }}
+                    >
+                      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#3C1E1E">
+                        <path d="M12 3C6.48 3 2 6.58 2 10.9c0 2.78 1.86 5.22 4.66 6.6l-.96 3.56c-.08.3.26.54.52.37l4.23-2.82c.5.05 1.02.09 1.55.09 5.52 0 10-3.58 10-7.9S17.52 3 12 3z"/>
+                      </svg>
+                      카카오톡 문의하기
+                    </a>
+                  )}
                 </div>
               </div>
             ) : (
               <>
                 {/* ── 안내 박스 ── */}
-                <div className="mb-3 bg-white rounded-xl overflow-hidden"
-                     style={{ border: '1px solid #d0ddef', borderLeft: `4px solid ${brand.primary}` }}>
-                  <div className="px-4 py-2.5 border-b" style={{ background: brand.light, borderColor: '#d0ddef' }}>
-                    <p className="text-sm font-bold leading-snug" style={{ color: brand.primary }}>
-                      고객님의 빠른 상품 수령을 위한 통관 정보 수정 안내
+                <div className="mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
+                  <div className="px-5 pt-4 pb-1">
+                    <p className="text-sm font-bold text-gray-800 leading-snug">
+                      고객님의 빠른 상품 수령을 위한 안내
                     </p>
-                    <p className="text-xs mt-0.5" style={{ color: brand.primary, opacity: 0.75 }}>
+                    <p className="text-xs text-gray-400 mt-0.5">
                       관세청 통관 기준 강화로 인해 확인이 필요합니다
                     </p>
                   </div>
-                  <div className="px-4 py-3 space-y-2" style={{ wordBreak: 'keep-all' }}>
-                    <p className="text-sm text-gray-700 flex gap-2">
-                      <span className="shrink-0 font-bold" style={{ color: brand.primary }}>①</span>
-                      <span>관세청 기준 변경으로 <strong>배송지 우편번호</strong>가 개인통관고유부호에 등록된 정보와 일치해야 통관이 진행됩니다.</span>
-                    </p>
-                    <p className="text-sm text-gray-700 flex gap-2">
-                      <span className="shrink-0 font-bold" style={{ color: brand.primary }}>②</span>
-                      <span>정보가 일치하지 않으면 상품 통관이 지연되거나 반송될 수 있어 고객님께 안내드립니다.</span>
-                    </p>
-                    <p className="text-sm text-gray-700 flex gap-2">
-                      <span className="shrink-0 font-bold" style={{ color: brand.primary }}>③</span>
-                      <span>입력하신 정보는 통관 정정 신청 목적으로만 안전하게 사용됩니다.</span>
-                    </p>
+                  <div className="px-5 py-3 space-y-3" style={{ wordBreak: 'keep-all' }}>
+                    {[
+                      '최근 관세청 정책 변경으로, 이름, 연락처, 통관부호와 함께 \'발급 시 등록한 우편번호\'까지 4가지가 모두 일치해야만 통관이 가능합니다.',
+                      '현재 입력된 정보의 불일치로 배송이 잠시 대기 중입니다. 올바른 우편번호로 수정해 주시면 즉시 출항 절차가 재개됩니다.',
+                      '고객님의 소중한 개인정보는 철저한 보안 속에 오직 세관 통관 재접수 목적으로만 안전하게 사용됩니다.',
+                    ].map((text, i) => (
+                      <div key={i} className="flex gap-2.5 items-start">
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                             style={{ background: brand.light }}>
+                          <span className="text-[10px] font-bold" style={{ color: brand.primary }}>{i + 1}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 leading-relaxed">{text}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 {/* ── 입력 폼 ── */}
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-200" style={{ background: '#f5f6f7' }}>
-                    <p className="text-base font-bold text-gray-800">■ 신청인 정보 입력</p>
-                    <p className="text-sm text-gray-500 mt-0.5">아래 정보를 정확하게 확인·수정 후 검증하여 주십시오</p>
+                <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                  <div className="px-5 pt-5 pb-1">
+                    <p className="text-base font-bold text-gray-800">통관 정보 입력</p>
+                    <p className="text-xs text-gray-400 mt-0.5">아래 정보를 정확하게 입력해 주세요</p>
                   </div>
 
-                  <div className="divide-y divide-gray-100">
+                  <div className="space-y-1 px-5 py-3">
 
                     {/* 수령인 성함 */}
-                    <div className="px-4 py-4">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
-                        수령인 성함 <span className="text-red-500">*</span>
+                    <div className="py-2.5">
+                      <label className="block text-xs font-semibold text-gray-500 mb-2 tracking-wide">
+                        수령인 성함 <span className="text-red-400">*</span>
                       </label>
                       <input
                         type="text"
                         value={name}
                         onChange={e => { setName(e.target.value); setVerifyStatus('idle') }}
                         placeholder="성함을 입력해 주세요"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
-                                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200/80 rounded-xl text-[15px]
+                                   placeholder:text-gray-300
+                                   focus:outline-none focus:bg-white focus:border-transparent focus:ring-2 transition-all duration-200"
+                        style={{ '--tw-ring-color': brand.primary + '60' }}
                       />
-                      <p className="text-xs text-gray-400 mt-1.5">개인통관고유부호에 등록된 성명과 동일하게 입력하여 주십시오.</p>
+                      <p className="text-xs text-gray-400 mt-2 pl-1">개인통관고유부호에 등록된 성명과 동일하게 입력해 주세요</p>
                     </div>
 
                     {/* 연락처 */}
-                    <div className="px-4 py-4">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
-                        휴대전화번호 <span className="text-red-500">*</span>
+                    <div className="py-2.5">
+                      <label className="block text-xs font-semibold text-gray-500 mb-2 tracking-wide">
+                        휴대전화번호 <span className="text-red-400">*</span>
                       </label>
                       <input
                         type="tel"
                         value={phone}
                         onChange={e => { setPhone(e.target.value); setVerifyStatus('idle') }}
                         placeholder="010-0000-0000"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
-                                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200/80 rounded-xl text-[15px]
+                                   placeholder:text-gray-300
+                                   focus:outline-none focus:bg-white focus:border-transparent focus:ring-2 transition-all duration-200"
+                        style={{ '--tw-ring-color': brand.primary + '60' }}
                       />
-                      <p className="text-xs text-gray-400 mt-1.5">개인통관고유부호에 등록된 휴대전화번호를 입력하여 주십시오.</p>
+                      <p className="text-xs text-gray-400 mt-2 pl-1">개인통관고유부호에 등록된 휴대전화번호를 입력해 주세요</p>
                     </div>
 
                     {/* 개인통관고유부호 */}
-                    <div className="px-4 py-4">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
-                        개인통관고유부호 (PCCC) <span className="text-red-500">*</span>
+                    <div className="py-2.5">
+                      <label className="block text-xs font-semibold text-gray-500 mb-2 tracking-wide">
+                        개인통관고유부호 (PCCC) <span className="text-red-400">*</span>
                       </label>
                       <input
                         type="text"
                         value={pccc}
                         onChange={handlePcccChange}
-                        placeholder="P000000000000 (P로 시작하는 13자리)"
+                        placeholder="P000000000000"
                         maxLength={13}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base font-mono
-                                   tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200/80 rounded-xl text-[15px] font-mono
+                                   tracking-widest placeholder:text-gray-300
+                                   focus:outline-none focus:bg-white focus:border-transparent focus:ring-2 transition-all duration-200"
+                        style={{ '--tw-ring-color': brand.primary + '60' }}
                       />
-                      <div className="mt-1.5">
+                      <div className="mt-2 pl-1">
                         {pccc && !isPcccValid && (
-                          <p className="text-sm flex items-center gap-1" style={{ color: '#d4351c' }}>
-                            <span className="font-bold">!</span> P로 시작하는 13자리를 입력해 주세요. (현재 {pccc.length}자)
+                          <p className="text-xs text-amber-600 flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm0-4V7h2v6h-2z"/>
+                            </svg>
+                            P로 시작하는 13자리를 입력해 주세요 ({pccc.length}/13)
                           </p>
                         )}
                         {isPcccValid && (
-                          <p className="text-sm flex items-center gap-1" style={{ color: '#00703c' }}>
-                            <span className="font-bold">✓</span> 형식이 올바릅니다.
+                          <p className="text-xs text-emerald-600 flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            형식이 올바릅니다
                           </p>
                         )}
                         {!pccc && (
-                          <p className="text-xs text-gray-400">관세청 전자통관시스템에서 발급받은 13자리 부호</p>
+                          <p className="text-xs text-gray-400">P로 시작하는 13자리 부호</p>
                         )}
                       </div>
                     </div>
 
                     {/* 배송지 우편번호 */}
-                    <div className="px-4 py-4">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">
-                        배송지 우편번호 <span className="text-red-500">*</span>
+                    <div className="py-2.5">
+                      <label className="block text-xs font-semibold text-gray-500 mb-2 tracking-wide">
+                        배송지 우편번호 <span className="text-red-400">*</span>
                       </label>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2.5">
                         <input
                           type="text"
                           value={zipcode}
                           readOnly
                           placeholder="우편번호 5자리"
-                          className="flex-1 px-4 py-3 border border-gray-200 rounded-lg text-base font-mono
-                                     tracking-widest bg-gray-50 text-gray-600 cursor-not-allowed"
+                          className="flex-1 px-4 py-3.5 bg-gray-100 border border-gray-200/60 rounded-xl text-[15px] font-mono
+                                     tracking-wider text-gray-600 cursor-not-allowed placeholder:text-gray-300"
                         />
                         <button
                           type="button"
                           onClick={() => setIsPostcodeOpen(true)}
-                          className="px-5 py-3 text-white text-sm font-bold rounded-lg transition-colors whitespace-nowrap"
-                          style={{ background: brand.primary }}
-                          onMouseEnter={e => e.currentTarget.style.background = brand.secondary}
-                          onMouseLeave={e => e.currentTarget.style.background = brand.primary}
+                          className="px-5 py-3.5 text-white text-sm font-semibold rounded-xl transition-all duration-200 whitespace-nowrap
+                                     active:scale-95 shadow-sm"
+                          style={{
+                            background: `linear-gradient(135deg, ${brand.primary}, ${brand.secondary})`,
+                            boxShadow: `0 2px 8px ${brand.primary}30`
+                          }}
                         >
                           주소 검색
                         </button>
                       </div>
-                      <p className="text-xs text-gray-400 mt-1.5">
-                        반드시 <strong>'주소 검색'</strong> 버튼을 통해 정확한 우편번호를 선택하여 주십시오.
+                      <p className="text-xs text-gray-400 mt-2 pl-1">
+                        '주소 검색' 버튼을 통해 정확한 우편번호를 선택해 주세요
                       </p>
+
+                      {/* 도로명주소 (자동) */}
+                      {address && (
+                        <input
+                          type="text"
+                          value={address}
+                          readOnly
+                          className="w-full mt-2.5 px-4 py-3.5 bg-gray-100 border border-gray-200/60 rounded-xl text-[15px]
+                                     text-gray-600 cursor-not-allowed"
+                        />
+                      )}
+
+                      {/* 상세주소 (수동 입력) */}
+                      {address && (
+                        <input
+                          type="text"
+                          value={addressDetail}
+                          onChange={(e) => setAddressDetail(e.target.value)}
+                          placeholder="상세주소 입력 (동, 호수 등)"
+                          className="w-full mt-2.5 px-4 py-3.5 bg-gray-50 border border-gray-200/60 rounded-xl text-[15px]
+                                     placeholder:text-gray-300 focus:outline-none focus:ring-2 transition-all duration-200"
+                          style={{ focusRingColor: brand.primary }}
+                          onFocus={(e) => e.target.style.boxShadow = `0 0 0 2px ${brand.primary}40`}
+                          onBlur={(e) => e.target.style.boxShadow = 'none'}
+                        />
+                      )}
                     </div>
                   </div>
 
                   {/* ── 검증 버튼 영역 ── */}
-                  <div className="px-4 py-4 border-t border-gray-200" style={{ background: '#f5f6f7' }}>
+                  <div className="px-5 py-5">
                     <button
                       type="button"
                       onClick={verifyPCCC}
                       disabled={!isPcccValid || !zipcode || !name.trim() || !phone || verifyStatus === 'loading'}
-                      className="w-full py-4 text-white font-bold text-base rounded-xl transition-colors
+                      className="w-full py-4 text-white font-bold text-[15px] rounded-2xl transition-all duration-200
                                  flex items-center justify-center gap-2
-                                 disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ background: verifyStatus === 'success' ? '#00703c' : brand.primary }}
+                                 disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none
+                                 active:scale-[0.98]"
+                      style={{
+                        background: verifyStatus === 'success'
+                          ? 'linear-gradient(135deg, #059669, #10b981)'
+                          : `linear-gradient(135deg, ${brand.primary}, ${brand.secondary})`,
+                        boxShadow: verifyStatus === 'success'
+                          ? '0 4px 14px rgba(5, 150, 105, 0.3)'
+                          : `0 4px 14px ${brand.primary}30`
+                      }}
                     >
                       {verifyStatus === 'loading' ? (
                         <>
@@ -423,7 +514,12 @@ export default function CustomsForm() {
                           통관 정보 검증 중...
                         </>
                       ) : verifyStatus === 'success' ? (
-                        '✓ 검증 완료 — 다시 확인하기'
+                        <>
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                          </svg>
+                          검증 완료 — 다시 확인하기
+                        </>
                       ) : (
                         '통관 정보 검증하기'
                       )}
@@ -431,44 +527,46 @@ export default function CustomsForm() {
 
                     {/* 검증 결과 */}
                     {verifyStatus === 'success' && (
-                      <div className="mt-3 rounded-xl border p-4 flex gap-3"
-                           style={{ background: '#e8f5e9', borderColor: '#a5d6a7' }}>
-                        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#00703c' }} fill="currentColor">
+                      <div className="mt-4 rounded-2xl p-4 flex gap-3 bg-emerald-50 border border-emerald-100">
+                        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600" fill="currentColor">
                           <path d="M12 1L3 5v6c0 5.25 3.75 10.15 9 11.35C17.25 21.15 21 16.25 21 11V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
                         </svg>
                         <div>
-                          <p className="text-sm font-bold" style={{ color: '#00703c' }}>관세청 검증 완료</p>
-                          <p className="text-sm mt-0.5" style={{ color: '#2e7d32' }}>
+                          <p className="text-sm font-bold text-emerald-700">관세청 검증 완료</p>
+                          <p className="text-sm mt-0.5 text-emerald-600">
                             통관 정보가 확인되었습니다. 아래 버튼을 눌러 신청을 완료해 주세요.
                           </p>
                         </div>
                       </div>
                     )}
                     {(verifyStatus === 'fail' || verifyStatus === 'error') && (
-                      <div className="mt-3 rounded-xl border p-4 flex gap-3"
-                           style={{ background: '#fff3f2', borderColor: '#f5c6c2' }}>
-                        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#d4351c' }} fill="currentColor">
+                      <div className="mt-4 rounded-2xl p-4 flex gap-3 bg-red-50 border border-red-100">
+                        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 mt-0.5 text-red-400" fill="currentColor">
                           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
                         </svg>
                         <div>
-                          <p className="text-sm font-bold" style={{ color: '#d4351c' }}>
+                          <p className="text-sm font-bold text-red-500">
                             {verifyStatus === 'fail' ? '검증 실패' : '연결 오류'}
                           </p>
-                          <p className="text-sm mt-0.5 text-gray-700">{verifyError}</p>
+                          <p className="text-sm mt-0.5 text-gray-600">{verifyError}</p>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* ── 최종 제출 버튼 ── */}
-                  <div className="px-4 py-4 border-t border-gray-200">
+                  <div className="px-5 pt-2 pb-5">
                     <button
                       type="button"
                       onClick={handleSubmit}
                       disabled={verifyStatus !== 'success' || isSubmitting || submitDone}
-                      className="w-full py-4 text-white font-bold text-base rounded-xl transition-colors
-                                 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      style={{ background: brand.primary }}
+                      className="w-full py-4 text-white font-bold text-[15px] rounded-2xl transition-all duration-200
+                                 disabled:opacity-20 disabled:cursor-not-allowed disabled:shadow-none
+                                 active:scale-[0.98] flex items-center justify-center gap-2"
+                      style={{
+                        background: `linear-gradient(135deg, ${brand.primary}, ${brand.secondary})`,
+                        boxShadow: verifyStatus === 'success' ? `0 4px 14px ${brand.primary}30` : 'none'
+                      }}
                     >
                       {isSubmitting ? (
                         <>
@@ -479,7 +577,7 @@ export default function CustomsForm() {
                         '정정 신청서 최종 제출'
                       )}
                     </button>
-                    <p className="text-center text-sm text-gray-400 mt-2">
+                    <p className="text-center text-xs text-gray-300 mt-3">
                       정보 확인 완료 후 제출 버튼이 활성화됩니다
                     </p>
                   </div>
@@ -488,23 +586,19 @@ export default function CustomsForm() {
             )}
 
             {/* ── 푸터 ── */}
-            <div className="mt-5 pb-8">
-              <div className="border-t border-gray-200 pt-4 space-y-3">
-                {/* 보안 배지 */}
-                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-gray-400">
-                  <span className="flex items-center gap-1">
-                    <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor"><path d="M12 1L3 5v6c0 5.25 3.75 10.15 9 11.35C17.25 21.15 21 16.25 21 11V5l-9-4z"/></svg>
-                    SSL 보안 암호화
-                  </span>
-                  <span>|</span>
-                  <span>개인정보보호법 준수</span>
-                </div>
-                {/* 면책 고지 */}
-                <p className="text-center text-xs text-gray-400 leading-relaxed" style={{ wordBreak: 'keep-all' }}>
-                  본 페이지는 <strong>{brand.name}</strong>에서 고객님의 원활한 통관을 위해 제공하는 서비스입니다.<br/>
-                  입력하신 정보는 통관 정정 신청 목적으로만 안전하게 사용됩니다.
-                </p>
+            <div className="mt-8 pb-10">
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-gray-300 mb-3">
+                <span className="flex items-center gap-1">
+                  <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor"><path d="M12 1L3 5v6c0 5.25 3.75 10.15 9 11.35C17.25 21.15 21 16.25 21 11V5l-9-4z"/></svg>
+                  SSL 보안 암호화
+                </span>
+                <span className="text-gray-200">|</span>
+                <span>개인정보보호법 준수</span>
               </div>
+              <p className="text-center text-xs text-gray-300 leading-relaxed" style={{ wordBreak: 'keep-all' }}>
+                본 페이지는 <strong className="text-gray-400">{brand.name}</strong>에서 제공하는 서비스입니다.<br/>
+                입력하신 정보는 통관 정정 목적으로만 안전하게 사용됩니다.
+              </p>
             </div>
 
           </>
@@ -514,21 +608,26 @@ export default function CustomsForm() {
       {/* ── 우편번호 검색 모달 (모바일: 하단 시트) ── */}
       {isPostcodeOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center"
           onClick={() => setIsPostcodeOpen(false)}
         >
           <div
-            className="bg-white w-full max-w-lg overflow-hidden rounded-t-2xl"
+            className="bg-white w-full max-w-lg overflow-hidden rounded-t-3xl shadow-2xl"
             onClick={e => e.stopPropagation()}
+            style={{ animation: 'fade-in-up 0.25s ease-out' }}
           >
-            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200"
-                 style={{ background: brand.primary }}>
-              <span className="font-bold text-white text-base">배송지 우편번호 검색</span>
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-200" />
+            </div>
+            <div className="flex items-center justify-between px-5 py-3">
+              <span className="font-bold text-gray-800 text-base">배송지 우편번호 검색</span>
               <button
                 onClick={() => setIsPostcodeOpen(false)}
-                className="text-blue-200 hover:text-white text-2xl leading-none p-1 w-10 h-10 flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors"
               >
-                ✕
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
               </button>
             </div>
             <DaumPostcode
