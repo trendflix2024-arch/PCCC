@@ -355,6 +355,7 @@ export default function AdminDashboard() {
                         className="w-4 h-4 accent-indigo-600 cursor-pointer" />
                     </th>
                   )}
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">마켓</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">주문번호</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">수령인</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">연락처</th>
@@ -413,6 +414,9 @@ export default function AdminDashboard() {
                             className="w-4 h-4 accent-indigo-600 cursor-pointer" />
                         </td>
                       )}
+                      <td className="px-4 py-3 text-gray-700 text-xs whitespace-nowrap">
+                        {BRAND_OPTIONS.find(b => b.key === order.brand)?.name ?? order.brand ?? '-'}
+                      </td>
                       <td className="px-4 py-3 font-mono text-gray-700 text-xs">{order.id}</td>
                       <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{order.name}</td>
                       <td className="px-4 py-3 text-gray-600">{order.phone ?? '-'}</td>
@@ -508,7 +512,7 @@ export default function AdminDashboard() {
                     </tr>
                     {isAlert && (
                       <tr key={`${order.id}-alert`} className="bg-red-50">
-                        <td colSpan={7} className="px-4 py-2">
+                        <td colSpan={8} className="px-4 py-2">
                           <p className="text-xs text-red-600 font-medium">
                             {isCritical
                               ? '⚠ 발송 예정일이 초과되었습니다. 고객 사유로 반품을 접수하세요.'
@@ -519,7 +523,7 @@ export default function AdminDashboard() {
                     )}
                     {isPendingLate && (
                       <tr key={`${order.id}-pending-late`} className={pendingDaysSince >= 3 ? 'bg-red-50' : 'bg-orange-50'}>
-                        <td colSpan={9} className="px-4 py-2">
+                        <td colSpan={10} className="px-4 py-2">
                           <p className={`text-xs font-medium ${pendingDaysSince >= 3 ? 'text-red-600' : 'text-orange-600'}`}>
                             {pendingDaysSince >= 3
                               ? `🚨 접수된지 ${pendingDaysSince}일이 지났습니다. 서둘러 확인해주세요.`
